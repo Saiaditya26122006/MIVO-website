@@ -39,7 +39,9 @@
       "Bash(npx supabase-js-cli *)",
       "Bash(echo \"Dev server starting in background \\(PID: $!\\)\")",
       "Bash(echo \"Dev server starting \\(PID: $!\\)\")",
-      "Bash(taskkill /F /IM node.exe)"
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(npx eslint *)",
+      "Bash(npm audit *)"
     ]
   }
 }

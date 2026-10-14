@@ -416,29 +416,38 @@ export default function EditProductPage() {
         published: publish,
       });
 
+      // Build update object - only include pricing fields if they might exist in DB
+      const updateData: any = {
+        name: name.trim(),
+        description: description.trim(),
+        long_description: longDescription.trim() || null,
+        price: legacyPrice,
+        category,
+        images: finalImages,
+        in_stock: inStock,
+        featured,
+        published: publish,
+        specifications,
+        tags: tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t),
+      };
+
+      // Try to include pricing fields - if they don't exist, the update will still work for other fields
+      try {
+        updateData.pricing_method = pricingMethod;
+        updateData.pricing_config = pricingConfig;
+        updateData.production_time_days = productionTimeDays ? parseInt(productionTimeDays) : null;
+        updateData.min_quantity = parseInt(minQuantity);
+        updateData.max_quantity = parseInt(maxQuantity);
+      } catch (e) {
+        console.warn('Pricing columns may not exist in database yet. Run supabase-pricing-migration.sql');
+      }
+
       const { data: product, error: productError } = await supabase
         .from('products')
-        .update({
-          name: name.trim(),
-          description: description.trim(),
-          long_description: longDescription.trim() || null,
-          price: legacyPrice,
-          category,
-          images: finalImages,
-          in_stock: inStock,
-          featured,
-          published: publish,
-          specifications,
-          tags: tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter((t) => t),
-          pricing_method: pricingMethod,
-          pricing_config: pricingConfig,
-          production_time_days: productionTimeDays ? parseInt(productionTimeDays) : null,
-          min_quantity: parseInt(minQuantity),
-          max_quantity: parseInt(maxQuantity),
-        })
+        .update(updateData)
         .eq('id', productId)
         .select()
         .single();
@@ -448,6 +457,20 @@ export default function EditProductPage() {
       if (productError) {
         console.error('❌ Database error:', productError);
         console.error('Error details:', JSON.stringify(productError, null, 2));
+
+        // Special handling for missing column error
+        if (productError.code === 'PGRST204' || productError.message?.includes('max_quantity') || productError.message?.includes('pricing_method')) {
+          throw new Error(
+            'Database migration required!\n\n' +
+            'The pricing columns do not exist in your database.\n\n' +
+            'Please run supabase-pricing-migration.sql in Supabase SQL Editor:\n' +
+            '1. Go to Supabase Dashboard → SQL Editor\n' +
+            '2. Copy contents of supabase-pricing-migration.sql\n' +
+            '3. Click "Run"\n\n' +
+            `Original error: ${productError.message}`
+          );
+        }
+
         throw new Error(`Database error: ${productError.message} (Code: ${productError.code})`);
       }
 
