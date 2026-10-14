@@ -1,31 +1,72 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { ModelViewer } from '@/components/3d/ModelViewer';
-import { getProductById } from '@/lib/data/products';
+import { createClient } from '@/lib/supabase/client';
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// Allow dynamic rendering for product pages
-export const dynamic = 'force-static';
-export const dynamicParams = true;
-
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
-  const product = getProductById(id);
+  const supabase = createClient();
+
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'3d' | 'images'>('3d');
 
+  useEffect(() => {
+    async function fetchProduct() {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .eq('published', true)
+        .single();
+
+      if (error || !data) {
+        console.error('Error fetching product:', error);
+        setProduct(null);
+      } else {
+        setProduct(data);
+      }
+      setLoading(false);
+    }
+
+    fetchProduct();
+  }, [id, supabase]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-ink/70 font-medium">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!product) {
-    notFound();
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-ink mb-4">404</h1>
+          <p className="text-xl text-ink/70 mb-8">Product not found</p>
+          <Link href="/explore">
+            <Button variant="accent">Back to Explore</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const handleAddToCart = () => {
@@ -86,15 +127,22 @@ export default function ProductPage({ params }: PageProps) {
             </div>
 
             {/* 3D Viewer or Image Gallery */}
-            <div className="aspect-square bg-cream/50 border-2 border-ink/10 overflow-hidden">
-              {activeTab === '3d' ? (
-                <ModelViewer modelUrl={product.modelFile} className="w-full h-full" />
+            <div className="aspect-square bg-cream/50 border-2 border-ink/10 overflow-hidden relative">
+              {activeTab === '3d' && product.model_file ? (
+                <ModelViewer
+                  modelUrl={`https://fuqjvxcyonuztfsepecb.supabase.co/storage/v1/object/public/product-stl-files/${product.model_file}`}
+                  className="w-full h-full"
+                />
+              ) : activeTab === 'images' && product.images && product.images.length > 0 ? (
+                <Image
+                  src={`https://fuqjvxcyonuztfsepecb.supabase.co/storage/v1/object/public/product-images/${product.images[0]}`}
+                  alt={product.name}
+                  fill
+                  className="object-contain p-8"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-6xl">
-                  {product.category === 'Home Decor' && '🏺'}
-                  {product.category === 'Accessories' && '📱'}
-                  {product.category === 'Office' && '💼'}
-                  {product.category === 'Collectibles' && '🎁'}
+                  📦
                 </div>
               )}
             </div>
@@ -140,7 +188,7 @@ export default function ProductPage({ params }: PageProps) {
                 <span className="text-4xl font-bold text-ink">
                   ₹{product.price}
                 </span>
-                {!product.inStock && (
+                {!product.in_stock && (
                   <span className="text-red-600 font-semibold">Out of Stock</span>
                 )}
               </div>
@@ -226,7 +274,7 @@ export default function ProductPage({ params }: PageProps) {
                 size="lg"
                 className="w-full"
                 onClick={handleBuyNow}
-                disabled={!product.inStock}
+                disabled={!product.in_stock}
               >
                 Buy Now
               </Button>
@@ -235,7 +283,7 @@ export default function ProductPage({ params }: PageProps) {
                 size="lg"
                 className="w-full"
                 onClick={handleAddToCart}
-                disabled={!product.inStock}
+                disabled={!product.in_stock}
               >
                 Add to Cart
               </Button>

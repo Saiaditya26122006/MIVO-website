@@ -22,7 +22,13 @@
       "Bash(node -e ' *)",
       "Bash(npm list *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'Update README with comprehensive documentation *)",
+      "Bash(git commit -m 'Fix: Add Supabase storage domain to Next.js image config *)",
+      "Bash(git commit -m 'Fix: Update product detail page to fetch from database *)"
     ]
   }
 }
