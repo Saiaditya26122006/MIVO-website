@@ -92,7 +92,7 @@ export default function ExplorePage() {
     }
 
     return filtered;
-  }, [selectedCategory, searchQuery, sortBy]);
+  }, [products, selectedCategory, searchQuery, sortBy]);
 
   if (loading) {
     return (
