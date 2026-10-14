@@ -2,15 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AdminNav } from '@/components/admin/AdminNav';
-import { STLViewer } from '@/components/admin/STLViewer';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
-import { MultipartUploader, type UploadProgress } from '@/lib/r2/multipart-uploader';
+import Image from 'next/image';
+import type {
+  PricingMethod,
+  SizeOption,
+  MaterialOption,
+  ColorOption,
+  FixedPricingConfig,
+  ConfigurablePricingConfig,
+  QuotePricingConfig,
+} from '@/types/pricing';
 
 export default function NewProductPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   // Form state
   const [name, setName] = useState('');
@@ -19,99 +25,180 @@ export default function NewProductPage() {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('robotics');
   const [material, setMaterial] = useState('PLA');
+  const [dimensions, setDimensions] = useState('');
+  const [weight, setWeight] = useState('');
+  const [color, setColor] = useState('');
   const [inStock, setInStock] = useState(true);
   const [featured, setFeatured] = useState(false);
   const [tags, setTags] = useState('');
 
-  // File state
-  const [stlFile, setStlFile] = useState<File | null>(null);
-  const [productImage, setProductImage] = useState<File | null>(null);
-  const [previewColor, setPreviewColor] = useState('#B7FF2A');
+  // Pricing state
+  const [pricingMethod, setPricingMethod] = useState<PricingMethod>('fixed');
+  const [basePrice, setBasePrice] = useState('');
+  const [productionTimeDays, setProductionTimeDays] = useState('');
+  const [minQuantity, setMinQuantity] = useState('1');
+  const [maxQuantity, setMaxQuantity] = useState('100');
 
-  // Model orientation state
-  const [rotationX, setRotationX] = useState(0);
-  const [rotationY, setRotationY] = useState(0);
-  const [rotationZ, setRotationZ] = useState(0);
+  // Configurable pricing options
+  const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([]);
+  const [materialOptions, setMaterialOptions] = useState<MaterialOption[]>([]);
+  const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
 
-  // Model position state
-  const [positionX, setPositionX] = useState(0);
-  const [positionY, setPositionY] = useState(0);
-  const [positionZ, setPositionZ] = useState(0);
+  // Quote-based config
+  const [requiredInfo, setRequiredInfo] = useState<string[]>(['dimensions', 'quantity']);
+  const [referencePhotosRequired, setReferencePhotosRequired] = useState(false);
 
-  // Model scale state
-  const [scale, setScale] = useState(1);
+  // Image state - support multiple images
+  const [productImages, setProductImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
 
-  // Upload progress state
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [uploading, setUploading] = useState(false);
-
   // Load user
   useEffect(() => {
+    const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) setUser(data.user);
       else router.push('/admin/login');
     });
-  }, [router, supabase]);
+  }, [router]);
 
-  const handleStlUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('STL upload triggered');
-    const file = e.target.files?.[0];
-    console.log('Selected file:', file);
-
-    if (!file) {
-      console.log('No file selected');
-      return;
-    }
-
-    console.log('File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.stl')) {
-      setError('Please upload a valid STL file');
-      console.error('Invalid file type:', file.name);
-      return;
-    }
-
-    // Note: No file size limit - R2 supports files over 1GB
-    // Large files will be uploaded in chunks
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    console.log('✓ STL file accepted:', file.name, `(${fileSizeMB} MB)`);
-
-    if (file.size > 50 * 1024 * 1024) {
-      console.log('📦 Large file detected - will use multipart upload to R2');
-    }
-
-    setStlFile(file);
-    setError('');
-  };
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [imagePreviewUrls]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload a valid image file');
-      return;
+    // Validate file types and sizes
+    const validFiles: File[] = [];
+    const newPreviewUrls: string[] = [];
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        setError(`${file.name} is not a valid image file`);
+        continue;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`${file.name} exceeds 5MB limit`);
+        continue;
+      }
+
+      validFiles.push(file);
+      newPreviewUrls.push(URL.createObjectURL(file));
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be smaller than 5MB');
-      return;
+    if (validFiles.length > 0) {
+      setProductImages([...productImages, ...validFiles]);
+      setImagePreviewUrls([...imagePreviewUrls, ...newPreviewUrls]);
+      setError('');
     }
+  };
 
-    setProductImage(file);
-    setError('');
+  const removeImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviewUrls[index]);
+    setProductImages(productImages.filter((_, i) => i !== index));
+    setImagePreviewUrls(imagePreviewUrls.filter((_, i) => i !== index));
+  };
+
+  const moveImage = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= productImages.length) return;
+
+    const newImages = [...productImages];
+    const newUrls = [...imagePreviewUrls];
+
+    [newImages[index], newImages[newIndex]] = [newImages[newIndex], newImages[index]];
+    [newUrls[index], newUrls[newIndex]] = [newUrls[newIndex], newUrls[index]];
+
+    setProductImages(newImages);
+    setImagePreviewUrls(newUrls);
+  };
+
+  // Size option management
+  const addSizeOption = () => {
+    setSizeOptions([...sizeOptions, { name: '', dimensions: '', price: 0 }]);
+  };
+
+  const updateSizeOption = (index: number, field: keyof SizeOption, value: string | number) => {
+    const updated = [...sizeOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setSizeOptions(updated);
+  };
+
+  const removeSizeOption = (index: number) => {
+    setSizeOptions(sizeOptions.filter((_, i) => i !== index));
+  };
+
+  const moveSizeOption = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= sizeOptions.length) return;
+    const updated = [...sizeOptions];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setSizeOptions(updated);
+  };
+
+  // Material option management
+  const addMaterialOption = () => {
+    setMaterialOptions([...materialOptions, { name: '', priceAdjustment: 0 }]);
+  };
+
+  const updateMaterialOption = (index: number, field: keyof MaterialOption, value: string | number) => {
+    const updated = [...materialOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setMaterialOptions(updated);
+  };
+
+  const removeMaterialOption = (index: number) => {
+    setMaterialOptions(materialOptions.filter((_, i) => i !== index));
+  };
+
+  const moveMaterialOption = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= materialOptions.length) return;
+    const updated = [...materialOptions];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setMaterialOptions(updated);
+  };
+
+  // Color option management
+  const addColorOption = () => {
+    setColorOptions([...colorOptions, { name: '', additionalCharge: 0 }]);
+  };
+
+  const updateColorOption = (index: number, field: keyof ColorOption, value: string | number) => {
+    const updated = [...colorOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setColorOptions(updated);
+  };
+
+  const removeColorOption = (index: number) => {
+    setColorOptions(colorOptions.filter((_, i) => i !== index));
+  };
+
+  const moveColorOption = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= colorOptions.length) return;
+    const updated = [...colorOptions];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setColorOptions(updated);
+  };
+
+  // Required info management for quote-based
+  const toggleRequiredInfo = (info: string) => {
+    if (requiredInfo.includes(info)) {
+      setRequiredInfo(requiredInfo.filter((i) => i !== info));
+    } else {
+      setRequiredInfo([...requiredInfo, info]);
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -134,75 +221,114 @@ export default function NewProductPage() {
       return;
     }
 
-    if (!price || parseFloat(price) <= 0) {
-      setError('Valid price is required');
-      return;
+    // Validate pricing based on method
+    if (pricingMethod === 'fixed') {
+      if (!basePrice || parseFloat(basePrice) <= 0) {
+        setError('Valid base price is required for fixed pricing');
+        return;
+      }
+    } else if (pricingMethod === 'configurable') {
+      if (!basePrice || parseFloat(basePrice) <= 0) {
+        setError('Valid base price is required for configurable pricing');
+        return;
+      }
+      if (sizeOptions.length === 0 && materialOptions.length === 0 && colorOptions.length === 0) {
+        setError('At least one configuration option (size, material, or color) is required for configurable pricing');
+        return;
+      }
+      // Validate size options
+      for (const size of sizeOptions) {
+        if (!size.name.trim() || !size.dimensions.trim() || size.price <= 0) {
+          setError('All size options must have a name, dimensions, and valid price');
+          return;
+        }
+      }
+      // Validate material options
+      for (const mat of materialOptions) {
+        if (!mat.name.trim()) {
+          setError('All material options must have a name');
+          return;
+        }
+      }
+      // Validate color options
+      for (const col of colorOptions) {
+        if (!col.name.trim()) {
+          setError('All color options must have a name');
+          return;
+        }
+      }
     }
 
-    if (!stlFile) {
-      setError('STL file is required');
+    if (productImages.length === 0) {
+      setError('At least one product image is required');
       return;
     }
 
     setLoading(true);
-    setUploading(true);
     setError('');
-    setUploadProgress(null);
-
-    let uploader: MultipartUploader | null = null;
 
     try {
-      console.log('📤 Starting upload process...');
+      const supabase = createClient();
+      console.log('📤 Starting product creation...');
 
-      // Upload STL file to R2 using multipart upload
-      console.log('📦 Uploading STL file to R2:', stlFile.name);
-      console.log('📦 File size:', (stlFile.size / 1024 / 1024).toFixed(2), 'MB');
+      // Upload all product images to Supabase storage
+      const uploadedImagePaths: string[] = [];
 
-      uploader = new MultipartUploader({
-        file: stlFile,
-        partSize: 10 * 1024 * 1024, // 10MB parts
-        maxRetries: 3,
-        onProgress: (progress) => {
-          setUploadProgress(progress);
-          console.log(
-            `📊 Upload progress: ${progress.percentage}% (${progress.uploadedParts}/${progress.totalParts} parts)`
-          );
-        },
-        onError: (error) => {
-          console.error('❌ Upload error:', error);
-        },
-      });
+      for (let i = 0; i < productImages.length; i++) {
+        const image = productImages[i];
+        console.log(`🖼️ Uploading image ${i + 1}/${productImages.length}:`, image.name);
 
-      const uploadResult = await uploader.start();
-      console.log('✓ STL uploaded to R2:', uploadResult.key);
-
-      setUploading(false);
-
-      // Upload product image if provided (still use Supabase for images)
-      let imagePath = null;
-      if (productImage) {
-        console.log('🖼️ Uploading product image:', productImage.name);
-        const imageFileName = `${Date.now()}-${productImage.name}`;
+        const imageFileName = `${Date.now()}-${i}-${image.name}`;
         const { data: imageData, error: imageError } = await supabase.storage
           .from('product-images')
-          .upload(imageFileName, productImage);
+          .upload(imageFileName, image);
 
         if (imageError) throw imageError;
-        imagePath = imageData.path;
-        console.log('✓ Image uploaded:', imagePath);
+        uploadedImagePaths.push(imageData.path);
+        console.log(`✓ Image ${i + 1} uploaded:`, imageData.path);
       }
 
       // Create product in database
       console.log('💾 Creating product record...');
 
-      // Debug: Check auth session before insert
+      // Check auth session
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔐 Current session:', session ? 'Active' : 'None');
-      console.log('🔐 User ID:', session?.user?.id);
-      console.log('🔐 User email:', session?.user?.email);
-
       if (!session) {
         throw new Error('No active session - please log out and log back in');
+      }
+
+      // Build specifications object
+      const specifications: any = {};
+      if (material) specifications.Material = material;
+      if (dimensions) specifications.Dimensions = dimensions;
+      if (weight) specifications.Weight = weight;
+      if (color) specifications.Color = color;
+
+      // Build pricing config based on method
+      let pricingConfig: FixedPricingConfig | ConfigurablePricingConfig | QuotePricingConfig;
+      let legacyPrice = 0;
+
+      if (pricingMethod === 'fixed') {
+        pricingConfig = {
+          basePrice: parseFloat(basePrice),
+        };
+        legacyPrice = parseFloat(basePrice);
+      } else if (pricingMethod === 'configurable') {
+        pricingConfig = {
+          basePrice: parseFloat(basePrice),
+          sizes: sizeOptions.length > 0 ? sizeOptions : undefined,
+          materials: materialOptions.length > 0 ? materialOptions : undefined,
+          colors: colorOptions.length > 0 ? colorOptions : undefined,
+        };
+        // Set legacy price to base price or first size price
+        legacyPrice = sizeOptions.length > 0 ? sizeOptions[0].price : parseFloat(basePrice);
+      } else {
+        // quote-based
+        pricingConfig = {
+          requiredInfo,
+          referencePhotosRequired,
+        };
+        legacyPrice = 0;
       }
 
       const { data: product, error: productError } = await supabase
@@ -211,28 +337,23 @@ export default function NewProductPage() {
           name: name.trim(),
           description: description.trim(),
           long_description: longDescription.trim() || null,
-          price: parseFloat(price),
+          price: legacyPrice, // Legacy field for backward compatibility
           category,
-          images: imagePath ? [imagePath] : [],
-          model_file: null, // R2 files don't use Supabase model_file
-          storage_provider: 'r2',
-          storage_key: uploadResult.key,
-          file_size_bytes: uploadResult.fileSize,
-          storage_metadata: {
-            uploaded_at: new Date().toISOString(),
-            upload_id: uploadResult.uploadId,
-            original_filename: stlFile.name,
-          },
+          images: uploadedImagePaths,
           in_stock: inStock,
           featured,
           published: publish,
-          specifications: {
-            Material: material,
-          },
+          specifications,
           tags: tags
             .split(',')
             .map((t) => t.trim())
             .filter((t) => t),
+          // New pricing fields
+          pricing_method: pricingMethod,
+          pricing_config: pricingConfig,
+          production_time_days: productionTimeDays ? parseInt(productionTimeDays) : null,
+          min_quantity: parseInt(minQuantity),
+          max_quantity: parseInt(maxQuantity),
         })
         .select()
         .single();
@@ -245,54 +366,31 @@ export default function NewProductPage() {
       router.push('/admin/products');
     } catch (err: any) {
       console.error('❌ Error creating product:', err);
-
-      // Detect CORS errors and provide helpful message
-      let errorMessage = err.message || 'Failed to create product';
-
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('CORS')) {
-        errorMessage = 'Upload blocked by CORS policy. Configure R2 bucket CORS settings to allow requests from this origin. See R2_CORS_CONFIGURATION.md for instructions.';
-      } else if (errorMessage.includes('Failed to upload part')) {
-        // Extract more details from the error
-        const match = errorMessage.match(/HTTP (\d+)/);
-        if (match) {
-          errorMessage = `Upload failed with HTTP ${match[1]}. ${errorMessage}`;
-        }
-      }
-
-      setError(errorMessage);
-
-      // Abort upload if still in progress
-      if (uploader) {
-        console.log('🚫 Aborting upload...');
-        await uploader.abort().catch(console.error);
-      }
+      setError(err.message || 'Failed to create product');
     } finally {
       setLoading(false);
-      setUploading(false);
-      setUploadProgress(null);
     }
   };
 
   if (!user) {
-    return <div className="min-h-screen bg-cream flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-ink/70">Loading...</p>
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-ink/70">Loading...</p>
+        </div>
       </div>
-    </div>;
+    );
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <AdminNav user={user} />
-
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold font-handwritten text-ink mb-2">
             Add New Product
           </h1>
-          <p className="text-lg text-ink/70">Upload STL file and create a new product listing</p>
+          <p className="text-lg text-ink/70">Create a new product listing with photos and details</p>
         </div>
 
         {error && (
@@ -305,476 +403,697 @@ export default function NewProductPage() {
         {loading && (
           <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="bg-white rounded-2xl border-2 border-lime p-8 max-w-md mx-4 text-center">
-              {/* Spinner */}
               <div className="relative w-20 h-20 mx-auto mb-6">
                 <div className="absolute inset-0 border-4 border-lime/30 rounded-full"></div>
                 <div className="absolute inset-0 border-4 border-lime border-t-transparent rounded-full animate-spin"></div>
-                <div className="absolute inset-2 border-4 border-yellow/50 border-b-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
               </div>
-
               <h3 className="text-2xl font-bold font-handwritten text-ink mb-2">
-                {uploading ? 'Uploading STL File...' : 'Publishing Product...'}
+                Creating Product...
               </h3>
-              <p className="text-ink/70 mb-4">
-                {uploading
-                  ? 'Uploading to Cloudflare R2 storage...'
-                  : 'Please wait while we create the product listing.'}
-              </p>
-
-              {/* Upload progress bar */}
-              {uploadProgress && (
-                <div className="mb-6">
-                  <div className="w-full bg-ink/10 rounded-full h-3 mb-2 overflow-hidden">
-                    <div
-                      className="bg-lime h-full rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress.percentage}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-sm text-ink/70">
-                    <span>{uploadProgress.percentage}%</span>
-                    <span>
-                      {(uploadProgress.uploadedBytes / 1024 / 1024).toFixed(1)} MB / {(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB
-                    </span>
-                  </div>
-                  <p className="text-xs text-ink/60 mt-1">
-                    Part {uploadProgress.uploadedParts} of {uploadProgress.totalParts}
-                  </p>
-                </div>
-              )}
-
-              {/* Progress steps */}
-              <div className="space-y-2 text-sm text-left">
-                <div className={`flex items-center gap-2 ${uploading ? 'text-ink' : 'text-ink/40'}`}>
-                  <div className={`w-2 h-2 ${uploading ? 'bg-lime animate-pulse' : 'bg-lime'} rounded-full`}></div>
-                  <span>{uploading ? 'Uploading STL file to R2...' : '✓ STL file uploaded'}</span>
-                </div>
-                {productImage && (
-                  <div className={`flex items-center gap-2 ${!uploading && productImage ? 'text-ink' : 'text-ink/40'}`}>
-                    <div className={`w-2 h-2 ${!uploading && productImage ? 'bg-yellow animate-pulse' : 'bg-yellow/30'} rounded-full`}></div>
-                    <span>Uploading product image...</span>
-                  </div>
-                )}
-                <div className={`flex items-center gap-2 ${!uploading ? 'text-ink' : 'text-ink/40'}`}>
-                  <div className={`w-2 h-2 ${!uploading ? 'bg-orange animate-pulse' : 'bg-orange/30'} rounded-full`}></div>
-                  <span>Creating product record...</span>
-                </div>
-              </div>
-
-              <p className="text-xs text-ink/50 mt-4">
-                {uploading
-                  ? 'Large files are uploaded in parts for reliability'
-                  : 'This may take a few moments'}
+              <p className="text-ink/70">
+                Uploading images and saving product details
               </p>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - 3D Preview */}
-          <div>
-            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6 mb-6">
-              <h2 className="text-xl font-bold text-ink mb-4">3D Preview</h2>
-              <div className="aspect-square relative">
-                <STLViewer
-                  file={stlFile}
-                  color={previewColor}
-                  rotationX={rotationX}
-                  rotationY={rotationY}
-                  rotationZ={rotationZ}
-                  positionX={positionX}
-                  positionY={positionY}
-                  positionZ={positionZ}
-                  scale={scale}
+          {/* Left: Product Images */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
+              <h2 className="text-2xl font-bold text-ink mb-4">Product Images</h2>
+              <p className="text-sm text-ink/60 mb-4">
+                Upload multiple images. First image will be the main product photo.
+              </p>
+
+              {/* Upload Button */}
+              <label className="block mb-4">
+                <div className="border-2 border-dashed border-lime/40 rounded-xl p-8 text-center hover:border-lime hover:bg-lime/5 transition-all cursor-pointer">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-ink font-medium mb-2">Click to upload images</p>
+                  <p className="text-sm text-ink/60">PNG, JPG up to 5MB each</p>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
                 />
-              </div>
+              </label>
 
-              {/* Model Orientation Controls */}
-              {stlFile && (
-                <div className="mt-4 space-y-3 p-4 bg-cream rounded-lg border border-ink/10">
-                  <h3 className="text-sm font-bold text-ink mb-2">Orient Model</h3>
-
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                        <span>Rotate X: {rotationX}°</span>
-                        <button onClick={() => setRotationX(0)} className="text-xs text-lime hover:underline">Reset</button>
-                      </label>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={rotationX}
-                        onChange={(e) => setRotationX(Number(e.target.value))}
-                        className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                        <span>Rotate Y: {rotationY}°</span>
-                        <button onClick={() => setRotationY(0)} className="text-xs text-lime hover:underline">Reset</button>
-                      </label>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={rotationY}
-                        onChange={(e) => setRotationY(Number(e.target.value))}
-                        className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                        <span>Rotate Z: {rotationZ}°</span>
-                        <button onClick={() => setRotationZ(0)} className="text-xs text-lime hover:underline">Reset</button>
-                      </label>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        value={rotationZ}
-                        onChange={(e) => setRotationZ(Number(e.target.value))}
-                        className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setRotationX(0);
-                        setRotationY(0);
-                        setRotationZ(0);
-                      }}
-                      className="w-full mt-2 px-4 py-2 bg-white border-2 border-ink/20 rounded-lg text-sm font-semibold text-ink hover:border-lime hover:bg-lime/5 transition-all"
-                    >
-                      Reset All Rotations
-                    </button>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-ink/10">
-                    <h3 className="text-sm font-bold text-ink mb-2">Position Model</h3>
-
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                          <span>Position X: {positionX.toFixed(1)}</span>
-                          <button onClick={() => setPositionX(0)} className="text-xs text-lime hover:underline">Reset</button>
-                        </label>
-                        <input
-                          type="range"
-                          min="-20"
-                          max="20"
-                          step="0.1"
-                          value={positionX}
-                          onChange={(e) => setPositionX(Number(e.target.value))}
-                          className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
+              {/* Image Previews */}
+              {imagePreviewUrls.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-ink">Uploaded Images ({imagePreviewUrls.length})</h3>
+                  {imagePreviewUrls.map((url, index) => (
+                    <div key={index} className="flex items-center gap-3 bg-cream/50 p-3 rounded-lg border border-ink/10">
+                      <div className="relative w-20 h-20 rounded overflow-hidden border-2 border-ink/10">
+                        <Image
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          fill
+                          className="object-cover"
                         />
                       </div>
-
-                      <div>
-                        <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                          <span>Position Y (Height): {positionY.toFixed(1)}</span>
-                          <button onClick={() => setPositionY(0)} className="text-xs text-lime hover:underline">Reset</button>
-                        </label>
-                        <input
-                          type="range"
-                          min="-10"
-                          max="20"
-                          step="0.1"
-                          value={positionY}
-                          onChange={(e) => setPositionY(Number(e.target.value))}
-                          className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                        />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-ink">
+                          {index === 0 ? 'Main Image' : `Image ${index + 1}`}
+                        </p>
+                        <p className="text-xs text-ink/60">{productImages[index].name}</p>
                       </div>
-
-                      <div>
-                        <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                          <span>Position Z: {positionZ.toFixed(1)}</span>
-                          <button onClick={() => setPositionZ(0)} className="text-xs text-lime hover:underline">Reset</button>
-                        </label>
-                        <input
-                          type="range"
-                          min="-20"
-                          max="20"
-                          step="0.1"
-                          value={positionZ}
-                          onChange={(e) => setPositionZ(Number(e.target.value))}
-                          className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setPositionX(0);
-                          setPositionY(0);
-                          setPositionZ(0);
-                        }}
-                        className="w-full mt-2 px-4 py-2 bg-white border-2 border-ink/20 rounded-lg text-sm font-semibold text-ink hover:border-lime hover:bg-lime/5 transition-all"
-                      >
-                        Reset All Positions
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-ink/10">
-                    <h3 className="text-sm font-bold text-ink mb-2">Scale Model</h3>
-
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                          <span>Scale: {scale.toFixed(2)}x</span>
-                          <button onClick={() => setScale(1)} className="text-xs text-lime hover:underline">Reset</button>
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="5"
-                          step="0.05"
-                          value={scale}
-                          onChange={(e) => setScale(Number(e.target.value))}
-                          className="w-full h-2 bg-ink/10 rounded-lg appearance-none cursor-pointer accent-lime"
-                        />
-                        <div className="flex justify-between text-[10px] text-ink/50 mt-1">
-                          <span>0.1x (Tiny)</span>
-                          <span>1x (Normal)</span>
-                          <span>5x (Huge)</span>
-                        </div>
+                      <div className="flex gap-2">
+                        {index > 0 && (
+                          <button
+                            onClick={() => moveImage(index, 'up')}
+                            className="p-2 hover:bg-ink/10 rounded transition-all"
+                            title="Move up"
+                          >
+                            ↑
+                          </button>
+                        )}
+                        {index < imagePreviewUrls.length - 1 && (
+                          <button
+                            onClick={() => moveImage(index, 'down')}
+                            className="p-2 hover:bg-ink/10 rounded transition-all"
+                            title="Move down"
+                          >
+                            ↓
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeImage(index)}
+                          className="p-2 hover:bg-red-100 text-red-600 rounded transition-all"
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setRotationX(0);
-                      setRotationY(0);
-                      setRotationZ(0);
-                      setPositionX(0);
-                      setPositionY(0);
-                      setPositionZ(0);
-                      setScale(1);
-                    }}
-                    className="w-full mt-4 px-4 py-2 bg-lime text-ink rounded-lg text-sm font-bold hover:bg-lime/80 transition-all"
-                  >
-                    Reset Everything
-                  </button>
+                  ))}
                 </div>
               )}
-
-              {/* Preview Color Picker */}
-              <div className="mt-4 flex items-center gap-4">
-                <label className="text-sm font-semibold text-ink">Preview Color:</label>
-                <div className="flex gap-2">
-                  {['#B7FF2A', '#101010', '#FFFFFF', '#4a7ba7', '#FF6A00'].map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setPreviewColor(color)}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        previewColor === color ? 'border-ink scale-110' : 'border-ink/20'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={previewColor}
-                    onChange={(e) => setPreviewColor(e.target.value)}
-                    className="w-10 h-10 rounded-lg border-2 border-ink/20 cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* STL File Upload */}
-            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
-              <h3 className="text-lg font-bold text-ink mb-4">STL File *</h3>
-              <input
-                type="file"
-                accept=".stl"
-                onChange={handleStlUpload}
-                className="hidden"
-                id="stl-upload"
-              />
-              <label
-                htmlFor="stl-upload"
-                className="block w-full px-6 py-4 border-2 border-dashed border-ink/30 rounded-xl text-center cursor-pointer hover:border-lime hover:bg-lime/5 transition-all"
-              >
-                {stlFile ? (
-                  <div>
-                    <p className="font-semibold text-ink">{stlFile.name}</p>
-                    <p className="text-sm text-ink/60 mt-1">
-                      {(stlFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <svg
-                      className="w-12 h-12 mx-auto mb-2 text-ink/40"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="font-medium text-ink">Click to upload STL file</p>
-                    <p className="text-sm text-ink/60 mt-1">Supports files over 1GB</p>
-                  </div>
-                )}
-              </label>
             </div>
           </div>
 
-          {/* Right Column - Product Details */}
+          {/* Right: Product Details */}
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
-              <h2 className="text-xl font-bold text-ink mb-6">Product Details</h2>
+              <h2 className="text-2xl font-bold text-ink mb-4">Product Details</h2>
 
+              {/* Basic Info */}
               <div className="space-y-4">
-                {/* Product Name */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
+                  <label className="block text-sm font-medium text-ink mb-2">
                     Product Name *
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., L298N Motor Driver Mount"
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="e.g., Custom Phone Stand"
                   />
                 </div>
 
-                {/* Short Description */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
+                  <label className="block text-sm font-medium text-ink mb-2">
                     Short Description *
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief description for product card"
-                    rows={2}
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all resize-none"
+                    rows={3}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="Brief description for product cards"
                   />
                 </div>
 
-                {/* Long Description */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
+                  <label className="block text-sm font-medium text-ink mb-2">
                     Long Description
                   </label>
                   <textarea
                     value={longDescription}
                     onChange={(e) => setLongDescription(e.target.value)}
-                    placeholder="Detailed description for product page"
                     rows={4}
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all resize-none"
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="Detailed product information"
                   />
                 </div>
 
-                {/* Price */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
-                    Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="150"
-                    min="0"
-                    step="1"
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
-                  />
-                </div>
-
-                {/* Category */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
-                    Category *
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Category
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
                   >
                     <option value="robotics">Robotics</option>
                     <option value="electronics">Electronics</option>
                     <option value="organization">Organization</option>
                     <option value="prototyping">Prototyping</option>
+                    <option value="home">Home & Decor</option>
+                    <option value="toys">Toys & Games</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
+              </div>
+            </div>
 
-                {/* Material */}
+            {/* Pricing Configuration */}
+            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
+              <h2 className="text-2xl font-bold text-ink mb-2">Pricing Configuration</h2>
+              <p className="text-sm text-ink/60 mb-4">
+                Choose how customers will be charged for this product
+              </p>
+
+              {/* Pricing Method Selector */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-ink mb-3">
+                  Pricing Method *
+                </label>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-lime/50"
+                    style={{
+                      borderColor: pricingMethod === 'fixed' ? '#C1FF72' : 'rgba(0,0,0,0.1)',
+                      backgroundColor: pricingMethod === 'fixed' ? 'rgba(193,255,114,0.05)' : 'transparent',
+                    }}>
+                    <input
+                      type="radio"
+                      value="fixed"
+                      checked={pricingMethod === 'fixed'}
+                      onChange={(e) => setPricingMethod(e.target.value as PricingMethod)}
+                      className="mt-1 w-4 h-4 text-lime focus:ring-lime"
+                    />
+                    <div className="ml-3 flex-1">
+                      <span className="font-semibold text-ink block">Fixed Price</span>
+                      <span className="text-sm text-ink/70">Single price for this product</span>
+                    </div>
+                  </label>
+
+                  <label className="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-lime/50"
+                    style={{
+                      borderColor: pricingMethod === 'configurable' ? '#C1FF72' : 'rgba(0,0,0,0.1)',
+                      backgroundColor: pricingMethod === 'configurable' ? 'rgba(193,255,114,0.05)' : 'transparent',
+                    }}>
+                    <input
+                      type="radio"
+                      value="configurable"
+                      checked={pricingMethod === 'configurable'}
+                      onChange={(e) => setPricingMethod(e.target.value as PricingMethod)}
+                      className="mt-1 w-4 h-4 text-lime focus:ring-lime"
+                    />
+                    <div className="ml-3 flex-1">
+                      <span className="font-semibold text-ink block">Configurable Price</span>
+                      <span className="text-sm text-ink/70">Price varies by size, material, or color options</span>
+                    </div>
+                  </label>
+
+                  <label className="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-lime/50"
+                    style={{
+                      borderColor: pricingMethod === 'quote' ? '#C1FF72' : 'rgba(0,0,0,0.1)',
+                      backgroundColor: pricingMethod === 'quote' ? 'rgba(193,255,114,0.05)' : 'transparent',
+                    }}>
+                    <input
+                      type="radio"
+                      value="quote"
+                      checked={pricingMethod === 'quote'}
+                      onChange={(e) => setPricingMethod(e.target.value as PricingMethod)}
+                      className="mt-1 w-4 h-4 text-lime focus:ring-lime"
+                    />
+                    <div className="ml-3 flex-1">
+                      <span className="font-semibold text-ink block">Quote-based</span>
+                      <span className="text-sm text-ink/70">Custom quote required, no upfront price</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Fixed Price Configuration */}
+              {pricingMethod === 'fixed' && (
+                <div className="space-y-4 p-4 bg-lime/5 rounded-lg border border-lime/20">
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-2">
+                      Base Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={basePrice}
+                      onChange={(e) => setBasePrice(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                      placeholder="299"
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Configurable Price Configuration */}
+              {pricingMethod === 'configurable' && (
+                <div className="space-y-6 p-4 bg-lime/5 rounded-lg border border-lime/20">
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-2">
+                      Base Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={basePrice}
+                      onChange={(e) => setBasePrice(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                      placeholder="299"
+                      step="0.01"
+                      min="0"
+                    />
+                    <p className="text-xs text-ink/60 mt-1">Starting price before customizations</p>
+                  </div>
+
+                  {/* Size Options */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-ink">Size Options</label>
+                      <button
+                        type="button"
+                        onClick={addSizeOption}
+                        className="px-3 py-1 text-sm bg-lime text-ink rounded-lg hover:bg-lime/80 transition-all"
+                      >
+                        + Add Size
+                      </button>
+                    </div>
+                    {sizeOptions.length > 0 ? (
+                      <div className="space-y-3">
+                        {sizeOptions.map((size, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-ink/10">
+                            <div className="grid grid-cols-12 gap-2 items-start">
+                              <input
+                                type="text"
+                                value={size.name}
+                                onChange={(e) => updateSizeOption(index, 'name', e.target.value)}
+                                placeholder="e.g., Small"
+                                className="col-span-3 px-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                              />
+                              <input
+                                type="text"
+                                value={size.dimensions}
+                                onChange={(e) => updateSizeOption(index, 'dimensions', e.target.value)}
+                                placeholder="e.g., 5x5x5cm"
+                                className="col-span-4 px-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                              />
+                              <div className="col-span-3 relative">
+                                <span className="absolute left-3 top-2 text-ink/60 text-sm">₹</span>
+                                <input
+                                  type="number"
+                                  value={size.price || ''}
+                                  onChange={(e) => updateSizeOption(index, 'price', parseFloat(e.target.value) || 0)}
+                                  placeholder="199"
+                                  className="w-full pl-7 pr-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                                  step="0.01"
+                                  min="0"
+                                />
+                              </div>
+                              <div className="col-span-2 flex gap-1">
+                                {index > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSizeOption(index, 'up')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                )}
+                                {index < sizeOptions.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSizeOption(index, 'down')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeSizeOption(index)}
+                                  className="p-1 hover:bg-red-100 text-red-600 rounded text-sm"
+                                  title="Remove"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink/50 italic">No size options added</p>
+                    )}
+                  </div>
+
+                  {/* Material Options */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-ink">Material Options</label>
+                      <button
+                        type="button"
+                        onClick={addMaterialOption}
+                        className="px-3 py-1 text-sm bg-lime text-ink rounded-lg hover:bg-lime/80 transition-all"
+                      >
+                        + Add Material
+                      </button>
+                    </div>
+                    {materialOptions.length > 0 ? (
+                      <div className="space-y-3">
+                        {materialOptions.map((material, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-ink/10">
+                            <div className="grid grid-cols-12 gap-2 items-center">
+                              <input
+                                type="text"
+                                value={material.name}
+                                onChange={(e) => updateMaterialOption(index, 'name', e.target.value)}
+                                placeholder="e.g., PLA"
+                                className="col-span-6 px-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                              />
+                              <div className="col-span-4 relative">
+                                <span className="absolute left-3 top-2 text-ink/60 text-sm">₹</span>
+                                <input
+                                  type="number"
+                                  value={material.priceAdjustment || ''}
+                                  onChange={(e) => updateMaterialOption(index, 'priceAdjustment', parseFloat(e.target.value) || 0)}
+                                  placeholder="0"
+                                  className="w-full pl-7 pr-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                                  step="0.01"
+                                />
+                              </div>
+                              <div className="col-span-2 flex gap-1">
+                                {index > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveMaterialOption(index, 'up')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                )}
+                                {index < materialOptions.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveMaterialOption(index, 'down')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeMaterialOption(index)}
+                                  className="p-1 hover:bg-red-100 text-red-600 rounded text-sm"
+                                  title="Remove"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-ink/50 mt-1 ml-1">Price adjustment (+ or -)</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink/50 italic">No material options added</p>
+                    )}
+                  </div>
+
+                  {/* Color Options */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-ink">Color Options</label>
+                      <button
+                        type="button"
+                        onClick={addColorOption}
+                        className="px-3 py-1 text-sm bg-lime text-ink rounded-lg hover:bg-lime/80 transition-all"
+                      >
+                        + Add Color
+                      </button>
+                    </div>
+                    {colorOptions.length > 0 ? (
+                      <div className="space-y-3">
+                        {colorOptions.map((color, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-ink/10">
+                            <div className="grid grid-cols-12 gap-2 items-center">
+                              <input
+                                type="text"
+                                value={color.name}
+                                onChange={(e) => updateColorOption(index, 'name', e.target.value)}
+                                placeholder="e.g., Black"
+                                className="col-span-6 px-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                              />
+                              <div className="col-span-4 relative">
+                                <span className="absolute left-3 top-2 text-ink/60 text-sm">₹</span>
+                                <input
+                                  type="number"
+                                  value={color.additionalCharge || ''}
+                                  onChange={(e) => updateColorOption(index, 'additionalCharge', parseFloat(e.target.value) || 0)}
+                                  placeholder="0"
+                                  className="w-full pl-7 pr-3 py-2 border border-ink/20 rounded focus:border-lime text-sm"
+                                  step="0.01"
+                                  min="0"
+                                />
+                              </div>
+                              <div className="col-span-2 flex gap-1">
+                                {index > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveColorOption(index, 'up')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                )}
+                                {index < colorOptions.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => moveColorOption(index, 'down')}
+                                    className="p-1 hover:bg-ink/10 rounded text-sm"
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeColorOption(index)}
+                                  className="p-1 hover:bg-red-100 text-red-600 rounded text-sm"
+                                  title="Remove"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-ink/50 mt-1 ml-1">Additional charge for this color</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink/50 italic">No color options added</p>
+                    )}
+                  </div>
+
+                  {(sizeOptions.length === 0 && materialOptions.length === 0 && colorOptions.length === 0) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-sm text-yellow-800">
+                        Add at least one configuration option (size, material, or color) for configurable pricing.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quote-based Configuration */}
+              {pricingMethod === 'quote' && (
+                <div className="space-y-4 p-4 bg-lime/5 rounded-lg border border-lime/20">
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-3">
+                      Required Information from Customer
+                    </label>
+                    <div className="space-y-2">
+                      {['dimensions', 'quantity', 'material', 'color', 'usage'].map((info) => (
+                        <label key={info} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={requiredInfo.includes(info)}
+                            onChange={() => toggleRequiredInfo(info)}
+                            className="w-4 h-4 rounded border-2 border-ink/20 text-lime focus:ring-lime"
+                          />
+                          <span className="text-sm text-ink capitalize">{info}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={referencePhotosRequired}
+                        onChange={(e) => setReferencePhotosRequired(e.target.checked)}
+                        className="w-4 h-4 rounded border-2 border-ink/20 text-lime focus:ring-lime"
+                      />
+                      <span className="text-sm font-medium text-ink">Require reference photos</span>
+                    </label>
+                    <p className="text-xs text-ink/60 mt-1 ml-6">Customer must upload photos for accurate quote</p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      Quote-based products don't show a price. Customers submit a quote request with their requirements.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Production & Quantity Settings */}
+              <div className="grid grid-cols-3 gap-4 mt-6">
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Production Time (days)
+                  </label>
+                  <input
+                    type="number"
+                    value={productionTimeDays}
+                    onChange={(e) => setProductionTimeDays(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="7"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Min Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="1"
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Max Quantity
+                  </label>
+                  <input
+                    type="number"
+                    value={maxQuantity}
+                    onChange={(e) => setMaxQuantity(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="100"
+                    min="1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Specifications */}
+            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
+              <h2 className="text-2xl font-bold text-ink mb-4">Specifications</h2>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
                     Material
                   </label>
                   <select
                     value={material}
                     onChange={(e) => setMaterial(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
                   >
                     <option value="PLA">PLA</option>
-                    <option value="PETG">PETG</option>
                     <option value="ABS">ABS</option>
-                    <option value="TPU">TPU</option>
+                    <option value="PETG">PETG</option>
+                    <option value="TPU">TPU (Flexible)</option>
                     <option value="Nylon">Nylon</option>
+                    <option value="Resin">Resin</option>
                   </select>
                 </div>
 
-                {/* Tags */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Color
+                  </label>
+                  <input
+                    type="text"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="e.g., Black, White, Custom"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Dimensions
+                  </label>
+                  <input
+                    type="text"
+                    value={dimensions}
+                    onChange={(e) => setDimensions(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="e.g., 10cm x 5cm x 3cm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
+                    Weight
+                  </label>
+                  <input
+                    type="text"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="e.g., 50g"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Options */}
+            <div className="bg-white rounded-2xl border-2 border-ink/10 p-6">
+              <h2 className="text-2xl font-bold text-ink mb-4">Options</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">
                     Tags (comma-separated)
                   </label>
                   <input
                     type="text"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
-                    placeholder="robotics, motor, arduino"
-                    className="w-full px-4 py-3 border-2 border-ink/20 bg-white text-ink rounded-xl focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    className="w-full px-4 py-3 border-2 border-ink/20 rounded-lg focus:border-lime focus:ring-2 focus:ring-lime/20 transition-all"
+                    placeholder="custom, gadget, holder"
                   />
                 </div>
 
-                {/* Product Image */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-2">
-                    Product Image
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="block w-full px-4 py-3 border-2 border-dashed border-ink/20 rounded-xl text-center cursor-pointer hover:border-lime hover:bg-lime/5 transition-all"
-                  >
-                    {productImage ? (
-                      <p className="text-sm font-medium text-ink">{productImage.name}</p>
-                    ) : (
-                      <p className="text-sm text-ink/60">Upload product thumbnail (optional)</p>
-                    )}
-                  </label>
-                </div>
-
-                {/* Checkboxes */}
-                <div className="space-y-3 pt-4">
+                <div className="flex items-center gap-6">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={inStock}
                       onChange={(e) => setInStock(e.target.checked)}
-                      className="w-5 h-5 rounded border-2 border-ink/30 text-lime focus:ring-lime"
+                      className="w-5 h-5 rounded border-2 border-ink/20 text-lime focus:ring-lime"
                     />
-                    <span className="font-medium text-ink">In Stock</span>
+                    <span className="text-sm font-medium text-ink">In Stock</span>
                   </label>
 
                   <label className="flex items-center gap-3 cursor-pointer">
@@ -782,9 +1101,9 @@ export default function NewProductPage() {
                       type="checkbox"
                       checked={featured}
                       onChange={(e) => setFeatured(e.target.checked)}
-                      className="w-5 h-5 rounded border-2 border-ink/30 text-lime focus:ring-lime"
+                      className="w-5 h-5 rounded border-2 border-ink/20 text-lime focus:ring-lime"
                     />
-                    <span className="font-medium text-ink">Featured Product</span>
+                    <span className="text-sm font-medium text-ink">Featured Product</span>
                   </label>
                 </div>
               </div>
@@ -797,23 +1116,22 @@ export default function NewProductPage() {
                 size="lg"
                 onClick={handleSaveDraft}
                 disabled={loading}
-                className="flex-1 rounded-xl"
+                className="flex-1"
               >
-                {loading ? 'Saving...' : 'Save Draft'}
+                Save as Draft
               </Button>
               <Button
                 variant="accent"
                 size="lg"
                 onClick={handlePublish}
                 disabled={loading}
-                className="flex-1 rounded-xl font-bold"
+                className="flex-1"
               >
-                {loading ? 'Publishing...' : 'Publish Product'}
+                Publish Product
               </Button>
             </div>
           </div>
         </div>
       </div>
-    </div>
   );
 }

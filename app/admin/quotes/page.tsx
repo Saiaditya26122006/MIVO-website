@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { AdminNav } from '@/components/admin/AdminNav';
 
 export default async function QuotesPage() {
   const supabase = await createClient();
@@ -20,10 +19,7 @@ export default async function QuotesPage() {
     .limit(50);
 
   return (
-    <div className="min-h-screen bg-cream">
-      <AdminNav user={user} />
-
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="max-w-7xl mx-auto px-6 py-12">
         <h1 className="text-4xl font-bold font-handwritten text-ink mb-2">Custom Quotes</h1>
         <p className="text-lg text-ink/70 mb-8">Review and respond to quote requests</p>
 
@@ -57,7 +53,6 @@ export default async function QuotesPage() {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

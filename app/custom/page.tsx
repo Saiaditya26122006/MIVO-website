@@ -66,7 +66,7 @@ export default function CustomOrderPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <section className="bg-ink text-cream py-16">
+      <section className="bg-ink text-cream pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -222,13 +222,13 @@ export default function CustomOrderPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-ink mb-2">
-                    Upload Files (STL, OBJ, CAD, etc.)
+                    Upload Reference Images (Optional)
                   </label>
                   <div className="border-2 border-dashed border-ink/20 p-8 text-center hover:border-ink/40 transition-all">
                     <input
                       type="file"
                       onChange={handleFileChange}
-                      accept=".stl,.obj,.step,.iges,.3mf,.gcode,.png,.jpg,.jpeg,.pdf"
+                      accept=".png,.jpg,.jpeg,.pdf,.webp"
                       className="hidden"
                       id="file-upload"
                     />
@@ -251,7 +251,7 @@ export default function CustomOrderPage() {
                             Click to upload or drag and drop
                           </p>
                           <p className="text-sm text-ink/40 mt-1">
-                            STL, OBJ, STEP, or image files
+                            Images or PDFs (Max 10MB)
                           </p>
                         </div>
                       )}

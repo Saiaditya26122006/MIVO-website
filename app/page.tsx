@@ -8,10 +8,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 
 export default function HomePage() {
-  const supabase = createClient();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
 
   useEffect(() => {
+    const supabase = createClient();
     async function fetchFeatured() {
       const { data } = await supabase
         .from('products')
@@ -25,7 +25,7 @@ export default function HomePage() {
     }
 
     fetchFeatured();
-  }, [supabase]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -41,7 +41,7 @@ export default function HomePage() {
 // Hero Section - Matching reference exactly
 function HeroSection() {
   return (
-    <section className="relative bg-cream pt-4 pb-10 overflow-hidden">
+    <section className="relative bg-cream pt-24 pb-10 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[540px]">
           {/* Left: Headline and CTAs */}

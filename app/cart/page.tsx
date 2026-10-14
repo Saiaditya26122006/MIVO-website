@@ -11,7 +11,7 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header */}
-      <section className="bg-ink text-cream py-16">
+      <section className="bg-ink text-cream pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

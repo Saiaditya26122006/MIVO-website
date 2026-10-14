@@ -4,7 +4,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Hero */}
-      <section className="bg-ink text-cream py-24">
+      <section className="bg-ink text-cream pt-24 pb-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
             About MIVO

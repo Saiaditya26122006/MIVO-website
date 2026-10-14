@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { getPriceLabel } from '@/lib/pricing';
+import type { Product } from '@/types/pricing';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -14,7 +16,6 @@ const fadeInUp = {
 };
 
 export default function ExplorePage() {
-  const supabase = createClient();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -23,6 +24,7 @@ export default function ExplorePage() {
 
   // Fetch products from database
   useEffect(() => {
+    const supabase = createClient();
     async function fetchProducts() {
       const { data, error } = await supabase
         .from('products')
@@ -39,7 +41,7 @@ export default function ExplorePage() {
     }
 
     fetchProducts();
-  }, [supabase]);
+  }, []);
 
   // Compute categories from products
   const categories = useMemo(() => {
@@ -106,7 +108,7 @@ export default function ExplorePage() {
   return (
     <div className="min-h-screen bg-cream">
       {/* Header - Cream background with handwritten style */}
-      <section className="bg-cream border-b border-ink/10 py-16">
+      <section className="bg-cream border-b border-ink/10 pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -294,7 +296,7 @@ export default function ExplorePage() {
                       <div className="flex justify-between items-center pt-4 border-t border-ink/5">
                         <div>
                           <div className="text-2xl font-bold text-ink">
-                            ₹{product.price}
+                            {getPriceLabel(product as unknown as Product)}
                           </div>
                           {product.specifications?.Material && (
                             <p className="text-xs text-ink/50 mt-1">
@@ -303,7 +305,9 @@ export default function ExplorePage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-ink group-hover:text-lime transition-colors font-semibold">
-                          <span className="text-sm">View</span>
+                          <span className="text-sm">
+                            {product.pricing_method === 'quote' ? 'Get Quote' : 'View'}
+                          </span>
                           <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                           </svg>

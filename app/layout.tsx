@@ -30,7 +30,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${caveat.variable}`}>
       <body className="min-h-screen flex flex-col bg-cream text-ink antialiased">
         <Navigation />
-        <main className="flex-1 pt-16">{children}</main>
+        <main className="flex-1">{children}</main>
         <Footer />
       </body>
     </html>

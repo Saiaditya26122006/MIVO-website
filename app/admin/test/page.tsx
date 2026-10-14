@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function TestPage() {
   const [results, setResults] = useState<any>({});
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
     async function runTests() {
       const testResults: any = {
         auth: 'Testing...',
@@ -75,11 +75,10 @@ export default function TestPage() {
     }
 
     runTests();
-  }, [supabase]);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-cream p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-4xl font-bold text-ink mb-8">Admin System Test</h1>
 
         <div className="bg-white rounded-2xl border-2 border-ink/10 p-8 space-y-4">
@@ -118,6 +117,5 @@ export default function TestPage() {
           </ol>
         </div>
       </div>
-    </div>
   );
 }

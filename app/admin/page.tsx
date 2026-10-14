@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { AdminNav } from '@/components/admin/AdminNav';
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -34,10 +33,7 @@ export default async function AdminDashboard() {
     .eq('status', 'submitted');
 
   return (
-    <div className="min-h-screen bg-cream">
-      <AdminNav user={user} />
-
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Welcome Header */}
         <div className="mb-12">
           <h1 className="text-5xl font-bold font-handwritten text-ink mb-3">
@@ -127,7 +123,6 @@ export default async function AdminDashboard() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
 

@@ -107,11 +107,10 @@ A full-stack web application for MIVO 3D Printing services featuring an admin da
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **3D Graphics**: Three.js + React Three Fiber + STLLoader
-- **Backend**: Supabase
-  - PostgreSQL database
-  - Authentication
-  - File storage (images & STL files)
-  - Row Level Security
+- **Backend & Storage**:
+  - **Supabase**: PostgreSQL database, Authentication, Row Level Security
+  - **Cloudflare R2**: Private STL file storage (supports files >1GB)
+  - **Supabase Storage**: Product images and thumbnails
 - **Animation**: Framer Motion
 - **Image Optimization**: Next.js Image with Sharp
 - **Package Manager**: npm
@@ -169,6 +168,7 @@ MIVO-website/
 
 - Node.js 18+ and npm
 - Supabase account (free tier works)
+- Cloudflare account with R2 enabled (free tier: 10GB storage)
 - Python 3 (for logo processing scripts, optional)
 
 ### Installation
@@ -184,38 +184,51 @@ MIVO-website/
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Set up Cloudflare R2**
+   
+   Follow the detailed setup guide in [`R2_SETUP.md`](./R2_SETUP.md):
+   - Create R2 bucket named `mivo-stl-originals`
+   - Generate API token with Object Read & Write permissions
+   - Copy Account ID, Access Key ID, and Secret Access Key
+
+4. **Set up environment variables**
    
    Copy `.env.local.example` to `.env.local`:
    ```bash
    cp .env.local.example .env.local
    ```
 
-   Fill in your Supabase credentials:
+   Fill in your credentials (Supabase + R2):
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   
+   R2_ACCOUNT_ID=your_r2_account_id
+   R2_ACCESS_KEY_ID=your_r2_access_key_id
+   R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+   R2_BUCKET_NAME=mivo-stl-originals
    ```
 
-4. **Set up Supabase database**
+5. **Set up Supabase database**
    
    - Go to your Supabase project → SQL Editor
-   - Copy the entire contents of `supabase-schema.sql`
-   - Paste and run it
+   - Run `supabase-schema.sql` to create base tables
+   - Run `supabase-r2-migration.sql` to add R2 support
    - Verify tables are created in Table Editor
 
-5. **Create storage buckets**
+6. **Create storage buckets**
    
    In Supabase Dashboard → Storage:
    - Create `product-images` bucket (make it **public**)
-   - Create `product-stl-files` bucket (keep **private**)
+   
+   Note: `product-stl-files` bucket is no longer needed - all STL files now use R2
 
-6. **Fix RLS policies (if needed)**
+7. **Fix RLS policies (if needed)**
    
    If you get permission errors, run `fix-rls-policy.sql` in SQL Editor
 
-7. **Start development server**
+8. **Start development server**
    ```bash
    npm run dev
    ```
@@ -296,8 +309,10 @@ Current categories supported:
 1. Navigate to **Products** → **Add New Product**
 2. **Upload STL file** (your 3D model)
    - Supports binary and ASCII STL files
-   - Max size: 500MB
-   - Model will preview in 3D automatically
+   - No file size limit - supports files over 1GB
+   - Files uploaded to Cloudflare R2 with multipart upload
+   - Progress bar shows upload status
+   - Model will preview locally in 3D (before upload)
 3. **Adjust model orientation**
    - Use rotation sliders (X, Y, Z)
    - Adjust position if needed

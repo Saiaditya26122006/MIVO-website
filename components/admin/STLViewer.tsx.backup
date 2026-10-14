@@ -1,0 +1,464 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Center } from '@react-three/drei';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import * as THREE from 'three';
+
+interface STLViewerProps {
+  file: File | string | null;
+  color?: string;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+  positionX?: number;
+  positionY?: number;
+  positionZ?: number;
+  scale?: number;
+}
+
+function STLModel({
+  geometry,
+  color,
+  rotationX = 0,
+  rotationY = 0,
+  rotationZ = 0,
+  positionX = 0,
+  positionY = 0,
+  positionZ = 0,
+  scale: userScale = 1
+}: {
+  geometry: THREE.BufferGeometry;
+  color: string;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+  positionX?: number;
+  positionY?: number;
+  positionZ?: number;
+  scale?: number;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, controls } = useThree();
+
+  useEffect(() => {
+    if (!geometry || !meshRef.current) return;
+
+    // Compute normals for proper lighting
+    geometry.computeVertexNormals();
+
+    // Calculate bounding box and sphere
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const boundingBox = geometry.boundingBox;
+    const boundingSphere = geometry.boundingSphere;
+
+    if (boundingBox && boundingSphere) {
+      // Get size for scaling
+      const size = new THREE.Vector3();
+      boundingBox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      // Scale to fit in a 5-unit box (auto-scale)
+      const autoScale = 5 / maxDim;
+
+      // Center the geometry on X and Z, but keep Y (bottom) at 0
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
+
+      // Translate so the model sits on the build plate (Y=0)
+      geometry.translate(-center.x, -boundingBox.min.y, -center.z);
+
+      // Recompute bounding sphere after translation
+      geometry.computeBoundingSphere();
+
+      // Apply auto-scale combined with user scale
+      const finalScale = autoScale * userScale;
+      meshRef.current.scale.set(finalScale, finalScale, finalScale);
+
+      // Position the mesh slightly above the grid to avoid z-fighting
+      meshRef.current.position.y = 0.01;
+
+      // Adjust camera to view the entire model
+      if (camera && boundingSphere) {
+        const scaledRadius = boundingSphere.radius * finalScale;
+        const distance = scaledRadius * 3; // View from 3x radius distance
+
+        camera.position.set(distance * 0.7, distance * 0.7, distance * 0.7);
+        camera.near = distance * 0.01;
+        camera.far = distance * 10;
+        camera.updateProjectionMatrix();
+
+        // Update controls target to look at model center
+        if (controls && 'target' in controls) {
+          (controls as any).target.set(0, scaledRadius * 0.5, 0);
+          (controls as any).update();
+        }
+      }
+
+      console.log('✓ Model loaded and centered:', {
+        originalSize: maxDim.toFixed(2),
+        autoScale: autoScale.toFixed(3),
+        userScale: userScale.toFixed(2),
+        finalScale: finalScale.toFixed(3),
+        vertices: geometry.attributes.position.count
+      });
+    }
+  }, [geometry, userScale, camera, controls]);
+
+  // Apply manual rotation
+  useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = (rotationX * Math.PI) / 180;
+      meshRef.current.rotation.y = (rotationY * Math.PI) / 180;
+      meshRef.current.rotation.z = (rotationZ * Math.PI) / 180;
+    }
+  }, [rotationX, rotationY, rotationZ]);
+
+  // Apply manual position
+  useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.position.x = positionX;
+      meshRef.current.position.y = positionY + 0.01; // Keep slight offset for z-fighting
+      meshRef.current.position.z = positionZ;
+    }
+  }, [positionX, positionY, positionZ]);
+
+  return (
+    <Center>
+      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          color={color}
+          roughness={0.3}
+          metalness={0.2}
+        />
+      </mesh>
+    </Center>
+  );
+}
+
+function Scene({
+  geometry,
+  color,
+  rotationX,
+  rotationY,
+  rotationZ,
+  positionX,
+  positionY,
+  positionZ,
+  scale
+}: {
+  geometry: THREE.BufferGeometry;
+  color: string;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+  positionX?: number;
+  positionY?: number;
+  positionZ?: number;
+  scale?: number;
+}) {
+  return (
+    <>
+      {/* Lighting setup for good visibility */}
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[10, 10, 5]} intensity={0.8} castShadow />
+      <directionalLight position={[-10, -10, -5]} intensity={0.4} />
+      <pointLight position={[0, 10, 0]} intensity={0.5} />
+      <hemisphereLight args={['#ffffff', '#444444', 0.4]} />
+
+      <STLModel
+        geometry={geometry}
+        color={color}
+        rotationX={rotationX}
+        rotationY={rotationY}
+        rotationZ={rotationZ}
+        positionX={positionX}
+        positionY={positionY}
+        positionZ={positionZ}
+        scale={scale}
+      />
+
+      <OrbitControls
+        enableZoom={true}
+        enablePan={true}
+        enableRotate={true}
+        minDistance={2}
+        maxDistance={50}
+        makeDefault
+      />
+
+      {/* Build plate grid */}
+      <gridHelper args={[20, 20, '#B7FF2A', '#e0e0e0']} position={[0, 0, 0]} />
+    </>
+  );
+}
+
+
+export function STLViewer({
+  file,
+  color = '#B7FF2A',
+  rotationX = 0,
+  rotationY = 0,
+  rotationZ = 0,
+  positionX = 0,
+  positionY = 0,
+  positionZ = 0,
+  scale = 1
+}: STLViewerProps) {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loaderRef = useRef(new STLLoader());
+
+  useEffect(() => {
+    if (!file) {
+      setGeometry(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const loadSTL = async () => {
+      try {
+        if (typeof file === 'string') {
+          // URL provided (e.g., from server) - use load method
+          console.log('📦 Loading STL from URL:', file);
+
+          loaderRef.current.load(
+            file,
+            (loadedGeometry) => {
+              console.log('✓ STL loaded successfully from URL');
+
+              // Diagnostics
+              console.log('Geometry attributes:', Object.keys(loadedGeometry.attributes || {}));
+              const positionAttr = loadedGeometry.attributes?.position;
+              console.log('Position attribute:', {
+                exists: !!positionAttr,
+                count: positionAttr?.count,
+                itemSize: positionAttr?.itemSize
+              });
+
+              // Validate geometry
+              if (!positionAttr || positionAttr.count === 0) {
+                console.error('❌ Validation failed: No position attribute or zero vertices');
+                setError('STL file is empty or invalid - no geometry found');
+                setLoading(false);
+                setGeometry(null);
+                return;
+              }
+
+              console.log('✓ Geometry validated:', positionAttr.count, 'vertices');
+
+              setGeometry(loadedGeometry);
+              setLoading(false);
+              setError(null);
+            },
+            undefined, // progress callback
+            (errorEvent) => {
+              console.error('❌ STL loading error:', errorEvent);
+              setError('Failed to load STL file from URL. The file may be inaccessible or corrupted.');
+              setLoading(false);
+              setGeometry(null);
+            }
+          );
+        } else {
+          // File object provided - read as ArrayBuffer and use parse method
+          // Validate file type
+          if (!file.name.toLowerCase().endsWith('.stl')) {
+            throw new Error('Invalid file type. Please upload an STL file.');
+          }
+
+          console.log('📦 Parsing local STL file:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+
+          // Read file as ArrayBuffer
+          const arrayBuffer = await file.arrayBuffer();
+          console.log('✓ File read as ArrayBuffer:', arrayBuffer.byteLength, 'bytes');
+
+          // Log first 100 bytes as hex for diagnostics (header inspection)
+          const headerBytes = new Uint8Array(arrayBuffer.slice(0, Math.min(100, arrayBuffer.byteLength)));
+          const hexHeader = Array.from(headerBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+          console.log('File header (hex):', hexHeader.substring(0, 160) + '...');
+
+          // Check if ASCII (starts with "solid")
+          const textDecoder = new TextDecoder('utf-8');
+          const headerText = textDecoder.decode(headerBytes.slice(0, 80));
+          const isAscii = headerText.trim().toLowerCase().startsWith('solid');
+          console.log('STL format detected:', isAscii ? 'ASCII' : 'Binary');
+
+          // Parse the STL data (supports both binary and ASCII)
+          let loadedGeometry;
+          try {
+            loadedGeometry = loaderRef.current.parse(arrayBuffer);
+            console.log('✓ STL parsed successfully');
+          } catch (parseError: any) {
+            console.error('❌ STLLoader.parse() threw exception:', parseError);
+            throw new Error(`STL parser failed: ${parseError.message || 'Unknown parse error'}`);
+          }
+
+          // Comprehensive geometry diagnostics
+          console.log('Geometry object:', {
+            type: loadedGeometry.type,
+            id: loadedGeometry.id,
+            uuid: loadedGeometry.uuid,
+            hasAttributes: !!loadedGeometry.attributes,
+            attributeKeys: Object.keys(loadedGeometry.attributes || {}),
+            hasIndex: loadedGeometry.index !== null,
+            boundingBox: loadedGeometry.boundingBox,
+            boundingSphere: loadedGeometry.boundingSphere
+          });
+
+          // Check for position attribute
+          if (!loadedGeometry.attributes) {
+            throw new Error('Geometry has no attributes object');
+          }
+
+          const positionAttr = loadedGeometry.attributes.position;
+          console.log('Position attribute:', {
+            exists: !!positionAttr,
+            type: positionAttr?.constructor.name,
+            array: positionAttr?.array ? `${positionAttr.array.constructor.name}[${positionAttr.array.length}]` : 'none',
+            count: positionAttr?.count,
+            itemSize: positionAttr?.itemSize
+          });
+
+          // Validate geometry has vertices
+          if (!positionAttr) {
+            throw new Error('STL geometry has no position attribute');
+          }
+
+          if (positionAttr.count === 0) {
+            throw new Error('STL geometry position attribute has zero vertices');
+          }
+
+          const vertexCount = positionAttr.count;
+          const triangleCount = vertexCount / 3;
+          console.log('✓ Geometry validated:', {
+            vertices: vertexCount,
+            triangles: Math.floor(triangleCount),
+            hasNormals: !!loadedGeometry.attributes.normal,
+            hasUVs: !!loadedGeometry.attributes.uv,
+            hasColors: !!loadedGeometry.attributes.color
+          });
+
+          setGeometry(loadedGeometry);
+          setLoading(false);
+          setError(null);
+        }
+      } catch (err: any) {
+        console.error('❌ STL parsing error:', err);
+        console.error('Error stack:', err.stack);
+
+        let errorMessage = 'Failed to load STL file';
+        if (err.message.includes('Invalid file type')) {
+          errorMessage = err.message;
+        } else if (err.message.includes('empty or invalid')) {
+          errorMessage = 'STL file is empty or contains no geometry';
+        } else {
+          errorMessage = 'Failed to parse STL file. The file may be corrupted or in an unsupported format.';
+        }
+
+        setError(errorMessage);
+        setLoading(false);
+        setGeometry(null);
+      }
+    };
+
+    loadSTL();
+  }, [file]);
+
+  if (!file) {
+    return (
+      <div className="absolute inset-0 bg-gradient-to-br from-cream to-white rounded-xl border-2 border-dashed border-ink/20 flex items-center justify-center">
+        <div className="text-center p-8">
+          <svg
+            className="w-20 h-20 mx-auto mb-4 text-ink/20"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+            />
+          </svg>
+          <p className="text-ink/60 font-medium">Upload an STL file to preview the 3D model</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="absolute inset-0 bg-cream rounded-xl border-2 border-ink/10 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-ink/70 font-medium">Loading 3D model...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="absolute inset-0 bg-red-50 rounded-xl border-2 border-red-200 flex items-center justify-center">
+        <div className="text-center p-8">
+          <svg
+            className="w-16 h-16 mx-auto mb-4 text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <p className="text-red-800 font-semibold mb-2">Failed to load 3D model</p>
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!geometry) return null;
+
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-xl">
+      <div className="w-full h-full bg-gradient-to-br from-cream via-white to-cream border-2 border-ink/10 shadow-inner">
+        <Canvas
+          camera={{ position: [5, 5, 5], fov: 50 }}
+          shadows
+          gl={{ antialias: true, alpha: true }}
+          style={{ display: 'block', width: '100%', height: '100%' }}
+        >
+          <Scene
+            geometry={geometry}
+            color={color}
+            rotationX={rotationX}
+            rotationY={rotationY}
+            rotationZ={rotationZ}
+            positionX={positionX}
+            positionY={positionY}
+            positionZ={positionZ}
+            scale={scale}
+          />
+        </Canvas>
+
+        {/* Controls hint */}
+        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-ink/10 text-xs text-ink/70 pointer-events-none">
+          <p><strong>Controls:</strong> Left-click: Rotate | Right-click: Pan | Scroll: Zoom</p>
+        </div>
+      </div>
+    </div>
+  );
+}

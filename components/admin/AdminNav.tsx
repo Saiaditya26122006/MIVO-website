@@ -10,9 +10,9 @@ import type { User } from '@supabase/supabase-js';
 export function AdminNav({ user }: { user: User }) {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createClient();
 
   const handleLogout = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/admin/login');
     router.refresh();
