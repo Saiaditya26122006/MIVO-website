@@ -418,13 +418,32 @@ export default function EditProductPage() {
         .select()
         .single();
 
-      if (productError) throw productError;
-      console.log('✓ Product updated:', product.id);
+      if (productError) {
+        console.error('❌ Database error:', productError);
+        throw new Error(`Database error: ${productError.message} (Code: ${productError.code})`);
+      }
 
+      if (!product) {
+        throw new Error('Update succeeded but no product data returned');
+      }
+
+      console.log('✓ Product updated successfully:', product.id);
+      alert('Product updated successfully!');
       router.push('/admin/products');
     } catch (err: any) {
       console.error('❌ Error updating product:', err);
       setError(err.message || 'Failed to update product');
+
+      // Show detailed error in console for debugging
+      if (err.code) {
+        console.error('Error code:', err.code);
+      }
+      if (err.details) {
+        console.error('Error details:', err.details);
+      }
+      if (err.hint) {
+        console.error('Error hint:', err.hint);
+      }
     } finally {
       setSaving(false);
     }
