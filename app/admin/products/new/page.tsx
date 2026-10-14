@@ -6,6 +6,7 @@ import { AdminNav } from '@/components/admin/AdminNav';
 import { STLViewer } from '@/components/admin/STLViewer';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { MultipartUploader, type UploadProgress } from '@/lib/r2/multipart-uploader';
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -45,6 +46,10 @@ export default function NewProductPage() {
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
 
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   // Load user
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -76,20 +81,15 @@ export default function NewProductPage() {
       return;
     }
 
-    // Validate file size (max 500MB)
-    // Note: Very large files may be slow to upload and render
-    if (file.size > 500 * 1024 * 1024) {
-      setError('STL file must be smaller than 500MB');
-      console.error('File too large:', file.size);
-      return;
-    }
+    // Note: No file size limit - R2 supports files over 1GB
+    // Large files will be uploaded in chunks
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    console.log('✓ STL file accepted:', file.name, `(${fileSizeMB} MB)`);
 
-    // Warn for large files
     if (file.size > 50 * 1024 * 1024) {
-      console.warn('Large file detected:', (file.size / 1024 / 1024).toFixed(2), 'MB - rendering may be slow');
+      console.log('📦 Large file detected - will use multipart upload to R2');
     }
 
-    console.log('✓ STL file accepted:', file.name);
     setStlFile(file);
     setError('');
   };
@@ -145,22 +145,40 @@ export default function NewProductPage() {
     }
 
     setLoading(true);
+    setUploading(true);
     setError('');
+    setUploadProgress(null);
+
+    let uploader: MultipartUploader | null = null;
 
     try {
       console.log('📤 Starting upload process...');
 
-      // Upload STL file to storage
-      console.log('📦 Uploading STL file:', stlFile.name);
-      const stlFileName = `${Date.now()}-${stlFile.name}`;
-      const { data: stlData, error: stlError } = await supabase.storage
-        .from('product-stl-files')
-        .upload(stlFileName, stlFile);
+      // Upload STL file to R2 using multipart upload
+      console.log('📦 Uploading STL file to R2:', stlFile.name);
+      console.log('📦 File size:', (stlFile.size / 1024 / 1024).toFixed(2), 'MB');
 
-      if (stlError) throw stlError;
-      console.log('✓ STL uploaded:', stlData.path);
+      uploader = new MultipartUploader({
+        file: stlFile,
+        partSize: 10 * 1024 * 1024, // 10MB parts
+        maxRetries: 3,
+        onProgress: (progress) => {
+          setUploadProgress(progress);
+          console.log(
+            `📊 Upload progress: ${progress.percentage}% (${progress.uploadedParts}/${progress.totalParts} parts)`
+          );
+        },
+        onError: (error) => {
+          console.error('❌ Upload error:', error);
+        },
+      });
 
-      // Upload product image if provided
+      const uploadResult = await uploader.start();
+      console.log('✓ STL uploaded to R2:', uploadResult.key);
+
+      setUploading(false);
+
+      // Upload product image if provided (still use Supabase for images)
       let imagePath = null;
       if (productImage) {
         console.log('🖼️ Uploading product image:', productImage.name);
@@ -196,7 +214,15 @@ export default function NewProductPage() {
           price: parseFloat(price),
           category,
           images: imagePath ? [imagePath] : [],
-          model_file: stlData.path,
+          model_file: null, // R2 files don't use Supabase model_file
+          storage_provider: 'r2',
+          storage_key: uploadResult.key,
+          file_size_bytes: uploadResult.fileSize,
+          storage_metadata: {
+            uploaded_at: new Date().toISOString(),
+            upload_id: uploadResult.uploadId,
+            original_filename: stlFile.name,
+          },
           in_stock: inStock,
           featured,
           published: publish,
@@ -219,9 +245,31 @@ export default function NewProductPage() {
       router.push('/admin/products');
     } catch (err: any) {
       console.error('❌ Error creating product:', err);
-      setError(err.message || 'Failed to create product');
+
+      // Detect CORS errors and provide helpful message
+      let errorMessage = err.message || 'Failed to create product';
+
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('CORS')) {
+        errorMessage = 'Upload blocked by CORS policy. Configure R2 bucket CORS settings to allow requests from this origin. See R2_CORS_CONFIGURATION.md for instructions.';
+      } else if (errorMessage.includes('Failed to upload part')) {
+        // Extract more details from the error
+        const match = errorMessage.match(/HTTP (\d+)/);
+        if (match) {
+          errorMessage = `Upload failed with HTTP ${match[1]}. ${errorMessage}`;
+        }
+      }
+
+      setError(errorMessage);
+
+      // Abort upload if still in progress
+      if (uploader) {
+        console.log('🚫 Aborting upload...');
+        await uploader.abort().catch(console.error);
+      }
     } finally {
       setLoading(false);
+      setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -265,32 +313,57 @@ export default function NewProductPage() {
               </div>
 
               <h3 className="text-2xl font-bold font-handwritten text-ink mb-2">
-                Publishing Product...
+                {uploading ? 'Uploading STL File...' : 'Publishing Product...'}
               </h3>
               <p className="text-ink/70 mb-4">
-                Please wait while we upload your files and create the product listing.
+                {uploading
+                  ? 'Uploading to Cloudflare R2 storage...'
+                  : 'Please wait while we create the product listing.'}
               </p>
+
+              {/* Upload progress bar */}
+              {uploadProgress && (
+                <div className="mb-6">
+                  <div className="w-full bg-ink/10 rounded-full h-3 mb-2 overflow-hidden">
+                    <div
+                      className="bg-lime h-full rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress.percentage}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-sm text-ink/70">
+                    <span>{uploadProgress.percentage}%</span>
+                    <span>
+                      {(uploadProgress.uploadedBytes / 1024 / 1024).toFixed(1)} MB / {(uploadProgress.totalBytes / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink/60 mt-1">
+                    Part {uploadProgress.uploadedParts} of {uploadProgress.totalParts}
+                  </p>
+                </div>
+              )}
 
               {/* Progress steps */}
               <div className="space-y-2 text-sm text-left">
-                <div className="flex items-center gap-2 text-ink/60">
-                  <div className="w-2 h-2 bg-lime rounded-full animate-pulse"></div>
-                  <span>Uploading STL file...</span>
+                <div className={`flex items-center gap-2 ${uploading ? 'text-ink' : 'text-ink/40'}`}>
+                  <div className={`w-2 h-2 ${uploading ? 'bg-lime animate-pulse' : 'bg-lime'} rounded-full`}></div>
+                  <span>{uploading ? 'Uploading STL file to R2...' : '✓ STL file uploaded'}</span>
                 </div>
                 {productImage && (
-                  <div className="flex items-center gap-2 text-ink/60">
-                    <div className="w-2 h-2 bg-yellow rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className={`flex items-center gap-2 ${!uploading && productImage ? 'text-ink' : 'text-ink/40'}`}>
+                    <div className={`w-2 h-2 ${!uploading && productImage ? 'bg-yellow animate-pulse' : 'bg-yellow/30'} rounded-full`}></div>
                     <span>Uploading product image...</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-ink/60">
-                  <div className="w-2 h-2 bg-orange rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                <div className={`flex items-center gap-2 ${!uploading ? 'text-ink' : 'text-ink/40'}`}>
+                  <div className={`w-2 h-2 ${!uploading ? 'bg-orange animate-pulse' : 'bg-orange/30'} rounded-full`}></div>
                   <span>Creating product record...</span>
                 </div>
               </div>
 
               <p className="text-xs text-ink/50 mt-4">
-                This may take a few moments for large files
+                {uploading
+                  ? 'Large files are uploaded in parts for reliability'
+                  : 'This may take a few moments'}
               </p>
             </div>
           </div>
@@ -548,7 +621,7 @@ export default function NewProductPage() {
                       />
                     </svg>
                     <p className="font-medium text-ink">Click to upload STL file</p>
-                    <p className="text-sm text-ink/60 mt-1">Max 50MB</p>
+                    <p className="text-sm text-ink/60 mt-1">Supports files over 1GB</p>
                   </div>
                 )}
               </label>

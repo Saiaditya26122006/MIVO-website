@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { ModelViewer } from '@/components/3d/ModelViewer';
+import { STLModelViewer } from '@/components/3d/STLModelViewer';
 import { createClient } from '@/lib/supabase/client';
 
 interface PageProps {
@@ -128,11 +129,28 @@ export default function ProductPage({ params }: PageProps) {
 
             {/* 3D Viewer or Image Gallery */}
             <div className="aspect-square bg-cream/50 border-2 border-ink/10 overflow-hidden relative">
-              {activeTab === '3d' && product.model_file ? (
-                <ModelViewer
-                  modelUrl={`https://fuqjvxcyonuztfsepecb.supabase.co/storage/v1/object/public/product-stl-files/${product.model_file}`}
-                  className="w-full h-full"
-                />
+              {activeTab === '3d' ? (
+                product.storage_provider === 'r2' && product.storage_key ? (
+                  // R2-stored STL file (new products)
+                  <STLModelViewer
+                    storageKey={product.storage_key}
+                    className="w-full h-full"
+                  />
+                ) : product.model_file ? (
+                  // Supabase-stored STL file (legacy products)
+                  <ModelViewer
+                    modelUrl={`https://fuqjvxcyonuztfsepecb.supabase.co/storage/v1/object/public/product-stl-files/${product.model_file}`}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  // No 3D model available
+                  <div className="w-full h-full flex items-center justify-center text-center p-8">
+                    <div>
+                      <div className="text-6xl mb-4">📦</div>
+                      <p className="text-ink/60">3D preview not available</p>
+                    </div>
+                  </div>
+                )
               ) : activeTab === 'images' && product.images && product.images.length > 0 ? (
                 <Image
                   src={`https://fuqjvxcyonuztfsepecb.supabase.co/storage/v1/object/public/product-images/${product.images[0]}`}

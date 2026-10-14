@@ -246,9 +246,15 @@ export default function ExplorePage() {
                             alt={product.name}
                             fill
                             className="object-contain p-8"
+                            onError={(e) => {
+                              // If image fails to load, hide it and show fallback
+                              e.currentTarget.style.display = 'none';
+                            }}
                           />
                         </div>
-                      ) : (
+                      ) : null}
+                      {/* Fallback illustration - shown if no image or image fails */}
+                      {(!product.images || product.images.length === 0) && (
                         <div className="absolute inset-0 flex items-center justify-center p-8">
                           <ProductIllustration category={product.category} />
                         </div>

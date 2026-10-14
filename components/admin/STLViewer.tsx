@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, Suspense } from 'react';
-import { Canvas, useLoader, useThree } from '@react-three/fiber';
-import { OrbitControls, Center } from '@react-three/drei';
+import { useEffect, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import * as THREE from 'three';
 
@@ -18,8 +18,18 @@ interface STLViewerProps {
   scale?: number;
 }
 
-function STLModel({ url, color, rotationX = 0, rotationY = 0, rotationZ = 0, positionX = 0, positionY = 0, positionZ = 0, scale: userScale = 1 }: {
-  url: string;
+function STLModel({
+  geometry,
+  color,
+  rotationX = 0,
+  rotationY = 0,
+  rotationZ = 0,
+  positionX = 0,
+  positionY = 0,
+  positionZ = 0,
+  scale: userScale = 1
+}: {
+  geometry: THREE.BufferGeometry;
   color: string;
   rotationX?: number;
   rotationY?: number;
@@ -29,51 +39,66 @@ function STLModel({ url, color, rotationX = 0, rotationY = 0, rotationZ = 0, pos
   positionZ?: number;
   scale?: number;
 }) {
-  const geometry = useLoader(STLLoader, url);
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
 
   useEffect(() => {
-    if (geometry && meshRef.current) {
-      geometry.computeVertexNormals();
+    if (!geometry || !meshRef.current) return;
 
-      // Calculate bounding box BEFORE centering
-      geometry.computeBoundingBox();
-      const boundingBox = geometry.boundingBox;
+    // Compute normals for proper lighting
+    geometry.computeVertexNormals();
 
-      if (boundingBox) {
-        // Get size for scaling
-        const size = new THREE.Vector3();
-        boundingBox.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
+    // Calculate bounding box and sphere
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
 
-        // Scale to fit in a 5-unit box (auto-scale)
-        const autoScale = 5 / maxDim;
+    const boundingBox = geometry.boundingBox;
+    const boundingSphere = geometry.boundingSphere;
 
-        // Center the geometry on X and Z, but keep Y (bottom) at 0
-        const center = new THREE.Vector3();
-        boundingBox.getCenter(center);
+    if (boundingBox && boundingSphere) {
+      // Get size for scaling
+      const size = new THREE.Vector3();
+      boundingBox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
 
-        // Translate so the model sits on the build plate (Y=0)
-        geometry.translate(-center.x, -boundingBox.min.y, -center.z);
+      // Scale to fit in a 5-unit box (auto-scale)
+      const autoScale = 5 / maxDim;
 
-        // Apply auto-scale combined with user scale
-        const finalScale = autoScale * userScale;
-        meshRef.current.scale.set(finalScale, finalScale, finalScale);
+      // Center the geometry on X and Z, but keep Y (bottom) at 0
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
 
-        // Position the mesh slightly above the grid to avoid z-fighting
-        meshRef.current.position.y = 0.01;
+      // Translate so the model sits on the build plate (Y=0)
+      geometry.translate(-center.x, -boundingBox.min.y, -center.z);
 
-        console.log('Model oriented:', {
-          originalSize: maxDim.toFixed(2),
-          autoScale: autoScale.toFixed(3),
-          userScale: userScale.toFixed(2),
-          finalScale: finalScale.toFixed(3),
-          bottomY: boundingBox.min.y.toFixed(2)
-        });
+      // Recompute bounding sphere after translation
+      geometry.computeBoundingSphere();
+
+      // Apply auto-scale combined with user scale
+      const finalScale = autoScale * userScale;
+      meshRef.current.scale.set(finalScale, finalScale, finalScale);
+
+      // Position the mesh slightly above the grid to avoid z-fighting
+      meshRef.current.position.y = 0.01;
+
+      // Adjust camera to view the entire model
+      if (camera && boundingSphere) {
+        const scaledRadius = boundingSphere.radius * finalScale;
+        const distance = scaledRadius * 3;
+
+        camera.position.set(distance * 0.7, distance * 0.7, distance * 0.7);
+        camera.near = distance * 0.01;
+        camera.far = distance * 10;
+        camera.updateProjectionMatrix();
+
+        // Update controls target
+        if (controls && 'target' in controls) {
+          (controls as any).target.set(0, scaledRadius * 0.5, 0);
+          (controls as any).update();
+        }
       }
     }
-  }, [geometry, userScale]);
+  }, [geometry, userScale, camera, controls]);
 
   // Apply manual rotation
   useEffect(() => {
@@ -88,26 +113,34 @@ function STLModel({ url, color, rotationX = 0, rotationY = 0, rotationZ = 0, pos
   useEffect(() => {
     if (meshRef.current) {
       meshRef.current.position.x = positionX;
-      meshRef.current.position.y = positionY + 0.01; // Keep slight offset for z-fighting
+      meshRef.current.position.y = positionY + 0.01;
       meshRef.current.position.z = positionZ;
     }
   }, [positionX, positionY, positionZ]);
 
   return (
-    <Center>
-      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial
-          color={color}
-          roughness={0.3}
-          metalness={0.2}
-        />
-      </mesh>
-    </Center>
+    <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial
+        color={color}
+        roughness={0.3}
+        metalness={0.2}
+      />
+    </mesh>
   );
 }
 
-function Scene({ modelUrl, color, rotationX, rotationY, rotationZ, positionX, positionY, positionZ, scale }: {
-  modelUrl: string;
+function Scene({
+  geometry,
+  color,
+  rotationX,
+  rotationY,
+  rotationZ,
+  positionX,
+  positionY,
+  positionZ,
+  scale
+}: {
+  geometry: THREE.BufferGeometry;
   color: string;
   rotationX?: number;
   rotationY?: number;
@@ -119,24 +152,23 @@ function Scene({ modelUrl, color, rotationX, rotationY, rotationZ, positionX, po
 }) {
   return (
     <>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-      <directionalLight position={[-10, -10, -5]} intensity={0.3} />
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[10, 10, 5]} intensity={0.8} castShadow />
+      <directionalLight position={[-10, -10, -5]} intensity={0.4} />
       <pointLight position={[0, 10, 0]} intensity={0.5} />
+      <hemisphereLight args={['#ffffff', '#444444', 0.4]} />
 
-      <Suspense fallback={<LoadingBox />}>
-        <STLModel
-          url={modelUrl}
-          color={color}
-          rotationX={rotationX}
-          rotationY={rotationY}
-          rotationZ={rotationZ}
-          positionX={positionX}
-          positionY={positionY}
-          positionZ={positionZ}
-          scale={scale}
-        />
-      </Suspense>
+      <STLModel
+        geometry={geometry}
+        color={color}
+        rotationX={rotationX}
+        rotationY={rotationY}
+        rotationZ={rotationZ}
+        positionX={positionX}
+        positionY={positionY}
+        positionZ={positionZ}
+        scale={scale}
+      />
 
       <OrbitControls
         enableZoom={true}
@@ -144,6 +176,7 @@ function Scene({ modelUrl, color, rotationX, rotationY, rotationZ, positionX, po
         enableRotate={true}
         minDistance={2}
         maxDistance={50}
+        makeDefault
       />
 
       <gridHelper args={[20, 20, '#B7FF2A', '#e0e0e0']} position={[0, 0, 0]} />
@@ -151,53 +184,81 @@ function Scene({ modelUrl, color, rotationX, rotationY, rotationZ, positionX, po
   );
 }
 
-function LoadingBox() {
-  return (
-    <mesh>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#B7FF2A" wireframe />
-    </mesh>
-  );
-}
-
-export function STLViewer({ file, color = '#B7FF2A', rotationX = 0, rotationY = 0, rotationZ = 0, positionX = 0, positionY = 0, positionZ = 0, scale = 1 }: STLViewerProps) {
-  const [modelUrl, setModelUrl] = useState<string | null>(null);
+export function STLViewer({
+  file,
+  color = '#B7FF2A',
+  rotationX = 0,
+  rotationY = 0,
+  rotationZ = 0,
+  positionX = 0,
+  positionY = 0,
+  positionZ = 0,
+  scale = 1
+}: STLViewerProps) {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loaderRef = useRef(new STLLoader());
 
   useEffect(() => {
     if (!file) {
-      setModelUrl(null);
+      setGeometry(null);
+      setLoading(false);
+      setError(null);
       return;
     }
 
     setLoading(true);
     setError(null);
+    setGeometry(null); // Clear previous geometry
 
-    try {
-      if (typeof file === 'string') {
-        // URL provided
-        setModelUrl(file);
-        setLoading(false);
-      } else {
-        // File object provided
-        const url = URL.createObjectURL(file);
-        setModelUrl(url);
-        setLoading(false);
+    const loadSTL = async () => {
+      try {
+        if (typeof file === 'string') {
+          // URL provided
+          loaderRef.current.load(
+            file,
+            (loadedGeometry) => {
+              if (loadedGeometry.attributes?.position?.count > 0) {
+                setGeometry(loadedGeometry);
+                setError(null);
+              } else {
+                setError('STL file contains no geometry');
+              }
+              setLoading(false);
+            },
+            undefined,
+            (err) => {
+              setError('Failed to load STL from URL');
+              setLoading(false);
+            }
+          );
+        } else {
+          // File object - read and parse
+          const arrayBuffer = await file.arrayBuffer();
+          const loadedGeometry = loaderRef.current.parse(arrayBuffer);
 
-        return () => {
-          URL.revokeObjectURL(url);
-        };
+          if (loadedGeometry.attributes?.position?.count > 0) {
+            setGeometry(loadedGeometry);
+            setError(null);
+          } else {
+            setError('STL file contains no geometry');
+          }
+          setLoading(false);
+        }
+      } catch (err: any) {
+        console.error('STL loading error:', err);
+        setError(err.message || 'Failed to load STL file');
+        setLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load STL file');
-      setLoading(false);
-    }
+    };
+
+    loadSTL();
   }, [file]);
 
   if (!file) {
     return (
-      <div className="w-full h-full bg-gradient-to-br from-cream to-white rounded-xl border-2 border-dashed border-ink/20 flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-br from-cream to-white rounded-xl border-2 border-dashed border-ink/20 flex items-center justify-center">
         <div className="text-center p-8">
           <svg
             className="w-20 h-20 mx-auto mb-4 text-ink/20"
@@ -220,7 +281,7 @@ export function STLViewer({ file, color = '#B7FF2A', rotationX = 0, rotationY = 
 
   if (loading) {
     return (
-      <div className="w-full h-full bg-cream rounded-xl border-2 border-ink/10 flex items-center justify-center">
+      <div className="absolute inset-0 bg-cream rounded-xl border-2 border-ink/10 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-ink/70 font-medium">Loading 3D model...</p>
@@ -231,7 +292,7 @@ export function STLViewer({ file, color = '#B7FF2A', rotationX = 0, rotationY = 
 
   if (error) {
     return (
-      <div className="w-full h-full bg-red-50 rounded-xl border-2 border-red-200 flex items-center justify-center">
+      <div className="absolute inset-0 bg-red-50 rounded-xl border-2 border-red-200 flex items-center justify-center">
         <div className="text-center p-8">
           <svg
             className="w-16 h-16 mx-auto mb-4 text-red-500"
@@ -253,31 +314,33 @@ export function STLViewer({ file, color = '#B7FF2A', rotationX = 0, rotationY = 
     );
   }
 
-  if (!modelUrl) return null;
+  if (!geometry) return null;
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-cream via-white to-cream rounded-xl border-2 border-ink/10 overflow-hidden shadow-inner">
-      <Canvas
-        camera={{ position: [5, 5, 5], fov: 50 }}
-        shadows
-        gl={{ antialias: true, alpha: true }}
-      >
-        <Scene
-          modelUrl={modelUrl}
-          color={color}
-          rotationX={rotationX}
-          rotationY={rotationY}
-          rotationZ={rotationZ}
-          positionX={positionX}
-          positionY={positionY}
-          positionZ={positionZ}
-          scale={scale}
-        />
-      </Canvas>
+    <div className="absolute inset-0 overflow-hidden rounded-xl">
+      <div className="w-full h-full bg-gradient-to-br from-cream via-white to-cream border-2 border-ink/10 shadow-inner">
+        <Canvas
+          camera={{ position: [5, 5, 5], fov: 50 }}
+          shadows
+          gl={{ antialias: true, alpha: true }}
+          style={{ display: 'block', width: '100%', height: '100%' }}
+        >
+          <Scene
+            geometry={geometry}
+            color={color}
+            rotationX={rotationX}
+            rotationY={rotationY}
+            rotationZ={rotationZ}
+            positionX={positionX}
+            positionY={positionY}
+            positionZ={positionZ}
+            scale={scale}
+          />
+        </Canvas>
 
-      {/* Controls hint */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-ink/10 text-xs text-ink/70">
-        <p><strong>Controls:</strong> Left-click: Rotate | Right-click: Pan | Scroll: Zoom</p>
+        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-ink/10 text-xs text-ink/70 pointer-events-none">
+          <p><strong>Controls:</strong> Left-click: Rotate | Right-click: Pan | Scroll: Zoom</p>
+        </div>
       </div>
     </div>
   );

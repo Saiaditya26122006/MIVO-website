@@ -6,7 +6,11 @@ export interface Product {
   price: number;
   category: string;
   images: string[];
-  modelFile?: string; // Path to 3D model file for preview
+  modelFile?: string; // Path to 3D model file (Supabase storage path or null for R2)
+  storageProvider?: 'supabase' | 'r2'; // Where the STL file is stored
+  storageKey?: string; // R2 object key (for R2-stored files)
+  fileSizeBytes?: number; // Original file size in bytes
+  storageMetadata?: Record<string, any>; // Additional storage metadata
   variants?: ProductVariant[];
   inStock: boolean;
   featured?: boolean;
