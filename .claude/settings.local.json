@@ -28,7 +28,9 @@
       "Bash(git push *)",
       "Bash(git commit -m 'Update README with comprehensive documentation *)",
       "Bash(git commit -m 'Fix: Add Supabase storage domain to Next.js image config *)",
-      "Bash(git commit -m 'Fix: Update product detail page to fetch from database *)"
+      "Bash(git commit -m 'Fix: Update product detail page to fetch from database *)",
+      "Bash(vercel *)",
+      "Bash(git commit -m 'Fix: TypeScript error in explore page tag filter *)"
     ]
   }
 }

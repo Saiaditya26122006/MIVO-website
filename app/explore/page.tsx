@@ -76,7 +76,7 @@ export default function ExplorePage() {
           p.name.toLowerCase().includes(query) ||
           p.description.toLowerCase().includes(query) ||
           p.category.toLowerCase().includes(query) ||
-          p.tags?.some(tag => tag.toLowerCase().includes(query))
+          p.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       );
     }
 
