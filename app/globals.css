@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+:root {
+  --ink-black: #101010;
+  --cream: #F5F3ED;
+  --lime: #B7FF2A;
+  --yellow: #FFD400;
+  --orange: #FF6A00;
+}
+
+@theme inline {
+  /* MIVO Brand Colors */
+  --color-ink: var(--ink-black);
+  --color-cream: var(--cream);
+  --color-lime: var(--lime);
+  --color-yellow: var(--yellow);
+  --color-orange: var(--orange);
+
+  /* Semantic Tokens */
+  --color-background: var(--cream);
+  --color-foreground: var(--ink-black);
+  --color-primary: var(--ink-black);
+  --color-accent: var(--lime);
+
+  /* Typography */
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-handwritten: var(--font-handwritten), 'Brush Script MT', cursive;
+  --font-display: ui-sans-serif, system-ui, sans-serif;
+
+  /* Spacing scale - premium, generous spacing */
+  --spacing-section: 8rem;
+  --spacing-section-mobile: 4rem;
+
+  /* Animation */
+  --transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Handwritten accent styles */
+.marker-underline {
+  position: relative;
+}
+
+.marker-underline::after {
+  content: '';
+  position: absolute;
+  left: -2%;
+  bottom: -4px;
+  width: 104%;
+  height: 8px;
+  background: var(--lime);
+  opacity: 0.6;
+  transform: rotate(-0.5deg);
+  border-radius: 2px;
+}
+
+.marker-circle {
+  position: relative;
+}
+
+.marker-circle::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  right: -10%;
+  bottom: -10%;
+  border: 3px solid var(--lime);
+  border-radius: 50%;
+  opacity: 0.5;
+  transform: rotate(-2deg);
+}
+
+/* Handwritten font utility */
+.font-handwritten {
+  font-family: var(--font-handwritten);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

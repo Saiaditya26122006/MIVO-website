@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/remove_logo_background.py)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(timeout 5 bash -c 'tail -f \"C:\\\\Users\\\\TALLUR~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-TALLURI-SAI-ADITYA-OneDrive-Desktop-projects-MIVO-website\\\\766fd2a9-de91-49c1-b621-a3f41f244df9\\\\tasks\\\\b8yy4imqu.output\" 2>/dev/null')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(curl -s http://localhost:3001)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(curl *)",
+      "Bash(lsof -ti:3002)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(taskkill //PID 14340 //F)",
+      "Bash(taskkill //PID 16148 //F)",
+      "Bash(taskkill //PID 27956 //F)",
+      "Bash(taskkill //PID 8164 //F)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(node -e ' *)",
+      "Bash(npm list *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
