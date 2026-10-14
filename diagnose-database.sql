@@ -41,14 +41,8 @@ SELECT
   permissive,
   roles::text,
   cmd,
-  CASE
-    WHEN qual IS NULL THEN 'No restriction'
-    ELSE pg_get_expr(qual, 'products'::regclass)
-  END as using_expression,
-  CASE
-    WHEN with_check IS NULL THEN 'No restriction'
-    ELSE pg_get_expr(with_check, 'products'::regclass)
-  END as with_check_expression
+  qual::text as using_expression,
+  with_check::text as with_check_expression
 FROM pg_policies
 WHERE tablename = 'products';
 

@@ -272,6 +272,10 @@ export default function EditProductPage() {
   };
 
   const handleSubmit = async (publish: boolean) => {
+    console.log('=== STARTING PRODUCT UPDATE ===');
+    console.log('Product ID:', productId);
+    console.log('Publishing:', publish);
+
     // Validation
     if (!name.trim()) {
       setError('Product name is required');
@@ -323,12 +327,21 @@ export default function EditProductPage() {
       return;
     }
 
+    console.log('✓ Validation passed');
     setSaving(true);
     setError('');
 
     try {
       const supabase = createClient();
       console.log('📤 Starting product update...');
+
+      // Check auth first
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Auth session:', session ? 'Active' : 'MISSING');
+      if (!session) {
+        throw new Error('No active session - please log out and log back in');
+      }
+      console.log('User email:', session.user.email);
 
       // Delete removed images from storage
       for (const imagePath of imagesToDelete) {
@@ -390,6 +403,12 @@ export default function EditProductPage() {
 
       // Update product in database
       console.log('💾 Updating product record...');
+      console.log('Data being sent:', {
+        name: name.trim(),
+        description: description.trim(),
+        pricing_method: pricingMethod,
+        published: publish,
+      });
 
       const { data: product, error: productError } = await supabase
         .from('products')
@@ -420,15 +439,25 @@ export default function EditProductPage() {
 
       if (productError) {
         console.error('❌ Database error:', productError);
+        console.error('Error details:', JSON.stringify(productError, null, 2));
         throw new Error(`Database error: ${productError.message} (Code: ${productError.code})`);
       }
 
       if (!product) {
+        console.error('❌ Update returned no data');
         throw new Error('Update succeeded but no product data returned');
       }
 
-      console.log('✓ Product updated successfully:', product.id);
-      alert('Product updated successfully!');
+      console.log('✓ Product updated successfully!');
+      console.log('Updated product data:', product);
+      console.log('Redirecting to products list...');
+
+      // Show success message
+      alert('✅ Product updated successfully!\n\nChanges:\n- Name: ' + product.name + '\n- Published: ' + (product.published ? 'Yes' : 'No'));
+
+      // Small delay to ensure user sees the alert
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       router.push('/admin/products');
     } catch (err: any) {
       console.error('❌ Error updating product:', err);
@@ -474,7 +503,20 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="max-w-7xl mx-auto px-6 py-12 relative">
+      {/* Loading Overlay */}
+      {saving && (
+        <div className="fixed inset-0 bg-ink/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl border-2 border-lime max-w-sm mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-lime border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h3 className="text-xl font-bold text-ink mb-2">Updating Product...</h3>
+              <p className="text-ink/60">Please wait while we save your changes</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold font-handwritten text-ink mb-2">
