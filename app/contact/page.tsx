@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import Link from 'next/link';
 
 export default function ContactPage() {
   const handleSubmit = (e: React.FormEvent) => {
@@ -144,6 +145,18 @@ export default function ContactPage() {
               </div>
             </div>
           </motion.div>
+        </div>
+
+        {/* Contact page footer with discreet admin link */}
+        <div className="relative mt-16 pb-8">
+          <div className="text-center text-ink/40 text-sm">
+            <Link
+              href="/admin/login"
+              className="absolute bottom-8 right-6 text-ink/30 hover:text-ink/50 text-xs transition-colors duration-200"
+            >
+              Admin
+            </Link>
+          </div>
         </div>
       </div>
     </div>
