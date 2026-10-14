@@ -272,6 +272,12 @@ export default function EditProductPage() {
   };
 
   const handleSubmit = async (publish: boolean) => {
+    // Prevent multiple submissions
+    if (saving) {
+      console.log('⚠️ Already saving, ignoring duplicate submission');
+      return;
+    }
+
     console.log('=== STARTING PRODUCT UPDATE ===');
     console.log('Product ID:', productId);
     console.log('Publishing:', publish);
@@ -437,6 +443,8 @@ export default function EditProductPage() {
         .select()
         .single();
 
+      console.log('📥 Database response:', { product, productError });
+
       if (productError) {
         console.error('❌ Database error:', productError);
         console.error('Error details:', JSON.stringify(productError, null, 2));
@@ -531,7 +539,7 @@ export default function EditProductPage() {
         </div>
       )}
 
-      <form className="space-y-8">
+      <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
         {/* Basic Information */}
         <div className="bg-white rounded-2xl border-2 border-ink/10 p-8">
           <h2 className="text-2xl font-bold text-ink mb-6">Basic Information</h2>
