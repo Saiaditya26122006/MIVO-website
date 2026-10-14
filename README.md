@@ -1,8 +1,10 @@
-# MIVO Website
+# MIVO - 3D Printing Platform
 
 **Making Ideas into Visible Objects**
 
-A premium 3D printing and custom manufacturing website built with Next.js 15, React 19, Tailwind CSS 4, and Framer Motion.
+A full-stack web application for MIVO 3D Printing services featuring an admin dashboard, STL file viewer, and e-commerce functionality built with Next.js 15, React 19, Three.js, and Supabase.
+
+![MIVO Logo](public/mivo-logo-horizontal-transparent.png)
 
 ## 🎨 Brand Identity
 
@@ -20,7 +22,7 @@ A premium 3D printing and custom manufacturing website built with Next.js 15, Re
 
 ## 🚀 Features
 
-### Current Implementation (Stage 1)
+### Public-Facing Website
 
 ✅ **Homepage with Premium Design**
 - Hero section with MIVO branding
@@ -31,11 +33,12 @@ A premium 3D printing and custom manufacturing website built with Next.js 15, Re
 - Custom project CTA
 - Brand closing section
 
-✅ **Product Marketplace**
-- Browse products with search and filtering
-- Category navigation
-- Product cards with pricing and stock status
-- Responsive grid layout
+✅ **Explore Models Page**
+- Browse all published products with real-time database integration
+- Search by name, category, or tags
+- Filter by category
+- Sort by name or price
+- Responsive grid layout with product images
 
 ✅ **Core UI Components**
 - Navigation with mobile menu
@@ -44,86 +47,120 @@ A premium 3D printing and custom manufacturing website built with Next.js 15, Re
 - Card components
 - Input components
 
-✅ **Data Layer**
-- TypeScript type definitions
-- Product management system
-- Category system
-- Sample product data
+✅ **Product Detail Pages**
+- Individual product pages with full specifications
+- Pricing and material information
+- Related products suggestions
 
-✅ **Logo Assets**
-- Transparent background logos processed and optimized
-- Multiple logo variants (horizontal and square)
-- Properly integrated throughout the site
-
-### Upcoming Features
-
-🔄 **Product Pages**
-- Individual product detail pages
-- 3D model previews
-- Specifications display
-- Add to cart functionality
-
-🔄 **Shopping Cart & Checkout**
-- Cart management
-- Checkout flow
-- Order confirmation
-
-🔄 **Custom Quote System**
+✅ **Custom Quote System**
 - Custom project request form
-- File upload for CAD files and references
-- Quote management
+- Customer information collection
+- Quote submission to database
 
-🔄 **Admin Dashboard**
-- Product management
-- Order management
-- Custom quote review
-- File management
+### Admin Dashboard (Fully Implemented)
+
+✅ **Authentication & Security**
+- Secure login with Supabase Auth
+- Session-based authentication
+- Protected admin routes with middleware
+- Row Level Security (RLS) policies
+
+✅ **Product Management**
+- Create new products with full details
+- Upload STL files (up to 500MB)
+- Upload product images
+- Real-time 3D preview during creation
+- Publish/draft status control
+- Edit and delete products
+- View all products with stats
+
+✅ **3D Model Viewer & Controls**
+- Interactive STL model preview using Three.js
+- Auto-scaling to fit any model size
+- **Rotation controls**: Full 360° on X, Y, Z axes
+- **Position controls**: Adjust X, Y, Z coordinates (-20 to +20)
+- **Scale control**: Resize from 0.1x to 5x
+- **Color picker**: Preview model in different colors
+- Build plate visualization
+- Individual and bulk reset controls
+
+✅ **Order Management**
+- View all customer orders
+- Order status tracking
+- Order details and line items
+
+✅ **Quote Management**
+- View custom quote requests
+- Customer contact information
+- Quote status management
+
+✅ **Dashboard Analytics**
+- Total products count
+- Total orders count
+- Pending quotes count
+- Quick navigation to all sections
 
 ## 🛠️ Tech Stack
 
-- **Framework:** Next.js 15 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS 4
-- **Animations:** Framer Motion
-- **Images:** Next.js Image Optimization with Sharp
-- **Package Manager:** npm
+- **Framework**: Next.js 15 (App Router)
+- **UI Library**: React 19
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **3D Graphics**: Three.js + React Three Fiber + STLLoader
+- **Backend**: Supabase
+  - PostgreSQL database
+  - Authentication
+  - File storage (images & STL files)
+  - Row Level Security
+- **Animation**: Framer Motion
+- **Image Optimization**: Next.js Image with Sharp
+- **Package Manager**: npm
 
 ## 📁 Project Structure
 
 ```
-MIVO website/
+MIVO-website/
 ├── app/                      # Next.js app directory
-│   ├── layout.tsx           # Root layout with Navigation & Footer
-│   ├── page.tsx             # Homepage
-│   ├── explore/             # Product marketplace
-│   ├── custom/              # Custom quote requests
-│   ├── about/               # About page
-│   ├── contact/             # Contact page
-│   ├── cart/                # Shopping cart
-│   └── product/[id]/        # Dynamic product pages
+│   ├── admin/               # Admin dashboard (protected)
+│   │   ├── login/          # Admin login page
+│   │   ├── products/       # Product management
+│   │   │   └── new/       # Create new product with STL viewer
+│   │   ├── orders/         # Order management
+│   │   ├── quotes/         # Quote management
+│   │   ├── settings/       # Admin settings
+│   │   └── test/           # Database connection test page
+│   ├── explore/            # Product catalog
+│   ├── product/[id]/       # Product detail pages
+│   ├── custom/             # Custom quote form
+│   ├── about/              # About page
+│   ├── contact/            # Contact page
+│   ├── cart/               # Shopping cart
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Homepage
 ├── components/              # React components
-│   ├── ui/                  # UI primitives
+│   ├── admin/              # Admin-specific components
+│   │   ├── AdminNav.tsx   # Admin navigation
+│   │   └── STLViewer.tsx  # 3D STL model viewer
+│   ├── ui/                 # Reusable UI components
 │   │   ├── Button.tsx
 │   │   ├── Card.tsx
 │   │   └── Input.tsx
-│   ├── Navigation.tsx       # Header navigation
-│   └── Footer.tsx           # Site footer
-├── lib/                     # Utilities and data
-│   ├── types/               # TypeScript types
-│   │   └── index.ts
-│   └── data/                # Data layer
-│       └── products.ts      # Product data
+│   ├── Navigation.tsx      # Main site navigation
+│   └── Footer.tsx          # Site footer
+├── lib/                     # Utility functions
+│   ├── supabase/           # Supabase client setup
+│   │   ├── client.ts      # Browser client
+│   │   ├── server.ts      # Server client
+│   │   └── middleware.ts  # Middleware helpers
+│   ├── types/              # TypeScript types
+│   └── data/               # Data utilities
+├── middleware.ts            # Next.js middleware (auth protection)
 ├── public/                  # Static assets
-│   ├── mivo-logo-horizontal-transparent.png
-│   └── mivo-logo-square-transparent.png
-├── scripts/                 # Utility scripts
-│   └── remove_logo_background.py
+│   ├── mivo-logo-*.png     # Logo variations
+│   └── services/           # Service images
+├── supabase-schema.sql     # Database schema
+├── fix-rls-policy.sql      # RLS policy fixes
 └── Configuration files
-    ├── package.json
-    ├── tsconfig.json
-    ├── next.config.js
-    ├── postcss.config.mjs
-    └── globals.css
 ```
 
 ## 🎯 Getting Started
@@ -131,27 +168,64 @@ MIVO website/
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Python 3 (for logo processing scripts)
+- Supabase account (free tier works)
+- Python 3 (for logo processing scripts, optional)
 
 ### Installation
 
-```bash
-# Install dependencies
-npm install
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Saiaditya26122006/MIVO-website.git
+   cd MIVO-website
+   ```
 
-# Start development server
-npm run dev
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-The site will be available at `http://localhost:3000`
+3. **Set up environment variables**
+   
+   Copy `.env.local.example` to `.env.local`:
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+   Fill in your Supabase credentials:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   ```
+
+4. **Set up Supabase database**
+   
+   - Go to your Supabase project → SQL Editor
+   - Copy the entire contents of `supabase-schema.sql`
+   - Paste and run it
+   - Verify tables are created in Table Editor
+
+5. **Create storage buckets**
+   
+   In Supabase Dashboard → Storage:
+   - Create `product-images` bucket (make it **public**)
+   - Create `product-stl-files` bucket (keep **private**)
+
+6. **Fix RLS policies (if needed)**
+   
+   If you get permission errors, run `fix-rls-policy.sql` in SQL Editor
+
+7. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000)
 
 ### Build for Production
 
 ```bash
-# Create optimized production build
 npm run build
-
-# Start production server
 npm start
 ```
 
@@ -185,21 +259,78 @@ Current categories supported:
 - **Organization** - Cable management, desk organizers
 - **Prototyping** - Custom prototype parts and fixtures
 
-## 🎬 Homepage Storytelling
+## 🗄️ Database Schema
 
-The cinematic scroll animation tells the MIVO story in 4 stages:
+### Tables
+- **products** - Product listings with specifications, pricing, and files
+- **product_variants** - Size/color/material variations
+- **orders** - Customer orders with status tracking
+- **order_items** - Individual items in each order
+- **custom_quotes** - Custom project requests from customers
 
-1. **Imagine** - Engineering sketch appears
-2. **Design** - Sketch transforms into CAD wireframe
-3. **Manufacture** - Layers build up (3D printing visualization)
-4. **Made Real** - MIVO brand reveal with tagline
+### Storage Buckets
+- **product-images** - Product photos (public, accessible via URL)
+- **product-stl-files** - 3D model files (private, admin-only access)
+
+### Security
+- Row Level Security (RLS) enabled on all tables
+- Authenticated users can manage products
+- Public read access for published products
+- Admin-only access for orders and quotes
+
+## 🎯 Admin Usage Guide
+
+### First-Time Setup
+
+1. **Create admin account** in Supabase Authentication
+   - Go to Supabase Dashboard → Authentication → Users
+   - Click "Add user" → Create with email/password
+   
+2. **Access admin dashboard**
+   - Visit `http://localhost:3000/admin/login`
+   - Log in with your credentials
+   - You'll be redirected to `/admin`
+
+### Adding Your First Product
+
+1. Navigate to **Products** → **Add New Product**
+2. **Upload STL file** (your 3D model)
+   - Supports binary and ASCII STL files
+   - Max size: 500MB
+   - Model will preview in 3D automatically
+3. **Adjust model orientation**
+   - Use rotation sliders (X, Y, Z)
+   - Adjust position if needed
+   - Scale model from 0.1x to 5x
+   - Preview in different colors
+4. **Fill in product details**
+   - Name, description, price
+   - Category, material
+   - Tags (comma-separated)
+5. **Upload product image** (optional)
+   - This will be shown on the Explore page
+   - Recommended: 1200x900px or higher
+6. **Click "Publish Product"**
+   - Product will appear on `/explore` page immediately
+   - Set "Featured" to show on homepage
+
+### Testing Your Setup
+
+Visit `/admin/test` to verify:
+- ✓ Authentication working
+- ✓ Database tables accessible
+- ✓ Storage buckets created
+- ✓ Permissions configured correctly
 
 ## 🔐 Security & Best Practices
 
 - TypeScript for type safety
-- Server-side validation ready
-- Secure file handling infrastructure
-- No exposed API keys in frontend
+- Row Level Security (RLS) on all database tables
+- Middleware-based route protection for admin pages
+- Session-based authentication with Supabase
+- Secure file upload with size validation
+- Environment variables for sensitive data
+- No API keys exposed in frontend code
 - Image optimization with Next.js
 - Performance-first implementation
 
@@ -219,38 +350,79 @@ The project includes professionally processed logo files:
 
 Original logos with backgrounds are preserved in the root directory.
 
-## 🚧 Development Roadmap
+## 🚀 Deployment
 
-### Phase 2: Product & Cart System
-- Individual product pages
+### Deploy to Vercel (Recommended)
+
+1. Push your code to GitHub (already done!)
+2. Visit [vercel.com](https://vercel.com) and import your repository
+3. Add environment variables in Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+4. Click Deploy!
+
+Vercel will automatically:
+- Build your Next.js app
+- Configure edge functions
+- Set up continuous deployment
+
+### Or use Vercel CLI
+
+```bash
+npm i -g vercel
+vercel
+```
+
+## 🔗 Links
+
+- **Repository**: https://github.com/Saiaditya26122006/MIVO-website
+- **Issues**: https://github.com/Saiaditya26122006/MIVO-website/issues
+- **Live Site**: [Coming Soon]
+
+## 🤝 Contributing
+
+This project was built by **Sai Aditya Talluri** with assistance from **Claude AI**.
+
+Contributions, issues, and feature requests are welcome!
+
+## 🚧 Roadmap
+
+### Completed ✅
+- Full website with all pages
+- Admin dashboard with authentication
+- Product management with STL upload
+- 3D model viewer with full controls
+- Database integration with Supabase
+- Real-time product catalog
+
+### Upcoming 🔄
 - Shopping cart functionality
-- Checkout flow
-- Order management
-
-### Phase 3: Custom Orders
-- Custom quote request form
-- File upload system
-- Admin quote review
-
-### Phase 4: Admin Dashboard
-- Product CRUD operations
-- Order management
-- Analytics and insights
-
-### Phase 5: Backend Integration
-- Database integration (Supabase recommended)
-- Authentication system
-- File storage
 - Payment gateway integration
+- Order tracking for customers
+- Email notifications
+- Advanced analytics dashboard
+- Batch product upload
+- Product variants management
 
 ## 📄 License
 
-Private project for MIVO business.
+MIT License - feel free to use this project for your own 3D printing business!
 
 ## 🙋 Support
 
-For questions or support, contact the MIVO team.
+For questions, issues, or feature requests:
+- Open an issue on GitHub
+- Contact: Sai Aditya Talluri
+
+## 📞 MIVO Contact
+
+- **Location**: Vijayawada, Andhra Pradesh, India
+- **Business**: 3D Printing & Custom Manufacturing
+- **Tagline**: Making Ideas into Visible Objects
 
 ---
+
+Built with ❤️ using Next.js, Three.js, and Supabase
 
 **MIVO** - Making Ideas into Visible Objects
