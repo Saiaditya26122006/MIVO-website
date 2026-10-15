@@ -1,0 +1,54 @@
+
+> mivo-website@1.0.0 dev
+> next dev
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\TALLURI SAI ADITYA\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\package-lock.json
+
+ ⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+   ▲ Next.js 15.5.27
+   - Local:        http://localhost:3001
+   - Network:      http://100.65.66.47:3001
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 9.3s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 4.5s (174 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 38.4s (1333 modules)
+ GET / 200 in 41811ms
+ ✓ Compiled in 6s (590 modules)
+ ✓ Compiled in 761ms (590 modules)
+ ✓ Compiled in 1885ms (590 modules)
+ ✓ Compiled in 561ms (590 modules)
+ ✓ Compiled in 591ms (590 modules)
+ ✓ Compiled in 513ms (590 modules)
+ ✓ Compiled in 735ms (590 modules)
+ ✓ Compiled in 521ms (590 modules)
+ ✓ Compiled in 508ms (590 modules)
+ ✓ Compiled in 423ms (590 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz'
+ ✓ Compiled in 1247ms (590 modules)
+ ✓ Compiled in 551ms (590 modules)
+ ✓ Compiled in 284ms (590 modules)
+ ✓ Compiled in 667ms (590 modules)
+ ✓ Compiled in 505ms (590 modules)
+ ✓ Compiled in 636ms (590 modules)
+ ✓ Compiled in 344ms (590 modules)
+ ✓ Compiled in 567ms (590 modules)
+ ✓ Compiled in 571ms (590 modules)
+ ✓ Compiled in 534ms (590 modules)
+ ✓ Compiled in 733ms (590 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz'
+ ✓ Compiled in 2.4s (590 modules)
+ ✓ Compiled in 716ms (590 modules)
+ ✓ Compiled in 461ms (590 modules)
+ ✓ Compiled in 733ms (590 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\.next\cache\webpack\client-development\0.pack.gz'

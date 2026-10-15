@@ -238,9 +238,14 @@ export default function NewProductPage() {
       }
       // Validate size options
       for (const size of sizeOptions) {
-        if (!size.name.trim() || !size.dimensions.trim() || size.price <= 0) {
-          setError('All size options must have a name, dimensions, and valid price');
+        if (!size.name.trim() || size.price <= 0) {
+          setError('All size options must have a name and valid price');
           return;
+        }
+        // Dimensions are optional in new type system (for backward compatibility)
+        // But at least warn if missing
+        if (!size.dimensions?.trim() && !size.structuredDimensions) {
+          console.warn(`Size option "${size.name}" has no dimensions specified`);
         }
       }
       // Validate material options

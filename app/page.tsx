@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
+import { ProductMosaic, ProductMosaicMobile } from '@/components/hero/ProductMosaic';
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
@@ -38,13 +39,13 @@ export default function HomePage() {
   );
 }
 
-// Hero Section - Matching reference exactly
+// Hero Section with Premium Product Mosaic
 function HeroSection() {
   return (
     <section className="relative bg-cream pt-24 pb-10 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[540px]">
-          {/* Left: Headline and CTAs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[600px]">
+          {/* Left: Headline and CTAs - Stationary */}
           <div className="relative z-10">
             {/* Handwritten annotation */}
             <div className="mb-2">
@@ -152,22 +153,14 @@ function HeroSection() {
             </div>
           </div>
 
-          {/* Right: 3D printing showcase */}
-          <div className="relative">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[2rem] border border-ink/10 bg-white shadow-[0_24px_60px_rgba(16,16,16,0.08)]">
-              <Image
-                src="/bambu-a1-printing-gear.png"
-                alt="A lime-green gear being made from a digital design"
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="relative z-10 object-cover object-center drop-shadow-[0_18px_20px_rgba(16,16,16,0.18)]"
-              />
+          {/* Right: Premium Vertical Product Mosaic - Desktop */}
+          <div className="hidden lg:block relative h-[600px]">
+            <ProductMosaic />
+          </div>
 
-              <div className="absolute bottom-5 left-5 z-20 rounded-full bg-lime px-3 py-2 shadow-lg sm:bottom-7 sm:left-7">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink">CAD → Print</p>
-              </div>
-            </div>
+          {/* Mobile: Smaller mosaic below text */}
+          <div className="lg:hidden w-full">
+            <ProductMosaicMobile />
           </div>
         </div>
       </div>

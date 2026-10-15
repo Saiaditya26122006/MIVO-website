@@ -1,0 +1,64 @@
+
+> mivo-website@1.0.0 build
+> next build
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\TALLURI SAI ADITYA\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\TALLURI SAI ADITYA\OneDrive\Desktop\projects\MIVO website\package-lock.json
+
+   ▲ Next.js 15.5.27
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 66s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/23) ...
+   Generating static pages (5/23) 
+   Generating static pages (11/23) 
+   Generating static pages (17/23) 
+ ✓ Generating static pages (23/23)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    8.75 kB         226 kB
+├ ○ /_not-found                            991 B         104 kB
+├ ○ /about                                 150 B         103 kB
+├ ƒ /admin                                 161 B         106 kB
+├ ƒ /admin/login                         2.28 kB         180 kB
+├ ƒ /admin/orders                          150 B         103 kB
+├ ƒ /admin/products                       2.5 kB         178 kB
+├ ƒ /admin/products/[id]/edit            7.07 kB         185 kB
+├ ƒ /admin/products/new                  6.38 kB         184 kB
+├ ƒ /admin/quotes                          150 B         103 kB
+├ ƒ /admin/settings                        150 B         103 kB
+├ ƒ /admin/test                           1.4 kB         174 kB
+├ ƒ /api/calculate-price                   150 B         103 kB
+├ ƒ /api/r2/download/[key]                 150 B         103 kB
+├ ƒ /api/r2/preview/[key]                  150 B         103 kB
+├ ƒ /api/r2/upload/abort                   150 B         103 kB
+├ ƒ /api/r2/upload/complete                150 B         103 kB
+├ ƒ /api/r2/upload/initiate                150 B         103 kB
+├ ƒ /api/r2/upload/part-urls               150 B         103 kB
+├ ○ /cart                                1.02 kB         143 kB
+├ ○ /contact                             1.76 kB         144 kB
+├ ○ /custom                              2.88 kB         142 kB
+├ ○ /explore                             5.29 kB         223 kB
+└ ƒ /product/[id]                        5.03 kB         222 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/255-ce8c7c75002f810b.js       46.5 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  └ other shared chunks (total)          1.99 kB
+
+
+ƒ Middleware                             94.8 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -41,7 +41,12 @@
       "Bash(echo \"Dev server starting \\(PID: $!\\)\")",
       "Bash(taskkill /F /IM node.exe)",
       "Bash(npx eslint *)",
-      "Bash(npm audit *)"
+      "Bash(npm audit *)",
+      "Bash(python -m json.tool)",
+      "Bash(tee build.log)",
+      "Bash(echo \"Dev server starting. Process ID: $!\")",
+      "Bash(psql --version)",
+      "Bash(npm test *)"
     ]
   }
 }
